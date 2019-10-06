@@ -9,12 +9,17 @@ MAX_speed = 1
 WIDTH = 1000
 HEIGHT = 500
 
+MAX_SIZE = 15
+VECTOR_SIZE = 30
+LINE_SITE = 80
+FIELD_OF_VIEW = 270
+
 """
 Defines a boid in space and time. This has all the functions that would affect a singular boid. 
 """
 
 class Boid:
-    def __init__(self,pos,color,highlight):
+    def __init__(self,pos,color,size,highlight):
         """
         Initializes a boid object with the following parameters: 
             pos: the position of the boid is given by a box with (x1,y1) and (x2,y2), where the 
@@ -32,14 +37,16 @@ class Boid:
         self.vx = 0
         self.vy = 0
         self.color = color
+        self.size = size
         self.highlight = highlight
         if highlight: 
-            angles = self.vision()
-            print (angles)
-            self.fieldOfView = canvas.create_arc(pos[0]-50,pos[1]-50,pos[2]+50,pos[3]+50,
-                start = np.rad2deg(angles[0]),extent=np.rad2deg(angles[1]))
-
-    
+            angles, lineAng = self.vision()
+            self.line = canvas.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
+                        self.pos[0] + self.size - VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - VECTOR_SIZE*np.sin(lineAng),arrow='first')
+            
+            self.fieldOfView = canvas.create_arc(self.pos[0] - self.size + LINE_SITE,self.pos[1] - self.size + LINE_SITE,
+                        self.pos[2] + self.size - LINE_SITE,self.pos[3] + self.size - LINE_SITE,start = -np.rad2deg(angles[0])  , extent=FIELD_OF_VIEW)
+            
     def move(self):
         """
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
@@ -52,18 +59,28 @@ class Boid:
         self.vy = self.vy + dr_r*np.sin(np.deg2rad(dr_theta))
         
         canvas.move(self.boid,self.vx,self.vy)
-        pos = canvas.coords(self.boid)
-        
-        if pos[3]>= HEIGHT or pos[1]<=0: 
-            self.vy = self.flip(self.vy)
-        if pos[2]>= WIDTH or pos[0]<=0:
-            self.vx = self.flip(self.vx)
+        self.pos = canvas.coords(self.boid)
 
+
+        if self.pos[3]>= HEIGHT or self.pos[1]<=0: 
+            self.vy = self.flip(self.vy)
+        if self.pos[2]>= WIDTH or self.pos[0]<=0:
+            self.vx = self.flip(self.vx)
+        
         if self.highlight:
-            angles = self.vision()
-            canvas.itemconfig(self.fieldOfView,start = np.rad2deg(angles[0]),extent=np.rad2deg(angles[1]))
+            angles, lineAng = self.vision()
+            canvas.delete(self.line)
+            canvas.delete(self.fieldOfView)
             canvas.move(self.fieldOfView,self.vx,self.vy)
-    
+            canvas.move(self.line,self.vx,self.vy)
+            print (np.rad2deg(angles[0]))
+            self.fieldOfView = canvas.create_arc(self.pos[0] - self.size + LINE_SITE, self.pos[1] - self.size + LINE_SITE,
+                        self.pos[2] + self.size - LINE_SITE,self.pos[3] + self.size - LINE_SITE, start = -np.rad2deg(angles[0]),extent=FIELD_OF_VIEW)
+            
+            self.line = canvas.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
+                            self.pos[0] + self.size - VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - VECTOR_SIZE*np.sin(lineAng),arrow='first')
+
+
     def flip(self,v):
         """
         Flips a given boid's velocity (x or y)
@@ -72,38 +89,31 @@ class Boid:
 
     def vision(self):
         """
-        Calculates the field of view of the boid. This is used to 
+        Calculates the field of view of the boid. This is used to figure out how many boids are in the vicinity 
+        so it can avoid them.
         """
         if self.vx == 0 and self.vy<0: 
-            angle = -np.pi/2
+            angle = 3*np.pi/2
         elif self.vx == 0 and self.vy>0:
             angle = np.pi/2 
         elif self.vx ==0 and self.vy == 0:
             angle = 0
         else: 
             angle = np.arctan2(self.vy,self.vx)
-        st = angle - 2
-        fn = angle + 2
-        print (angle)
+        st = angle - np.deg2rad(FIELD_OF_VIEW/2)
 
-        if st < 0 and fn > 0:
-            temp = st
-            st = 2*np.pi - fn
-            fn = 2*np.pi + temp  
-        elif st < 0 or fn > 0: 
-            temp = st
-            st = fn 
-            fn = temp
+        if st < 0: 
+            st = 2*np.pi + st
 
-        vision = [st,fn] 
-        return vision 
+        vision = [st-np.pi/2,0] 
+        return vision,angle
 
   
 def init_Boid():
-    size = rd.randint(5,25)
+    size = rd.randint(5,MAX_SIZE)
     px = rd.randint(0,WIDTH)
     py = rd.randint(0,HEIGHT)
-    return [px-size,py-size,px+size,py+size]
+    return [px-size,py-size,px+size,py+size],size
 
 tk = Tk()
 canvas = Canvas(tk,width=1000,height=500)
@@ -114,9 +124,10 @@ balls = []
 ballInterest = 100
 
 for i in range(nballs):
-    balls.append(Boid(init_Boid(),'red',False))
+    Initpos, size = init_Boid()
+    balls.append(Boid(Initpos,'red',size,False))
     if i ==ballInterest:
-         spec = Boid(init_Boid(),'green',True)
+         spec = Boid(Initpos,'green',size,True)
          balls.append(spec)
          
          
@@ -128,6 +139,6 @@ while (True):
     for b in balls:
         b.move()
     tk.update()
-    time.sleep(0.5)
+    time.sleep(0.05)
 
 tk.mainloop()
