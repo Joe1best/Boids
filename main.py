@@ -4,30 +4,133 @@ from tkinter import *
 import time 
 import matplotlib.pyplot as plt 
 import random as rd
+import matplotlib.pylab as pl
+
 
 MAX_speed = 2
 WIDTH = 1000
 HEIGHT = 800
+N_AREAS_WIDTH = 10
+N_AREAS_HEIGHT = 5
+TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
+
 
 MAX_SIZE = 10
 VECTOR_SIZE = 30
 LINE_SITE = 40
 FIELD_OF_VIEW = 270
 
+NBALLS = 100
+
+COLORS = [ "pink", "blue", "green", "yellow", "purple", "orange", "white", "black" ]
+SHOWGRIDCOLOR = True
+SHOWGRIDS = True
+
+TK = Tk()
+CANVAS = Canvas(TK,width=WIDTH,height=HEIGHT)
 """
 Defines a boid in space and time. This has all the functions that would affect a singular boid. 
 """
+
+"""
+NEED TO FIX THIS 
+"""
+def init_Boid():
+    size = rd.randint(5,MAX_SIZE)
+    px = rd.randint(0,WIDTH)
+    py = rd.randint(0,HEIGHT)
+    return [px-size,py-size,px+size,py+size],size
+
+def seperateAreas():
+    x_loc = np.linspace(0,WIDTH,N_AREAS_WIDTH+1)
+    y_loc = np.linspace(0,HEIGHT,N_AREAS_HEIGHT+1)
+
+    #Draws the gridlines
+    if SHOWGRIDS:
+        for y in range(N_AREAS_HEIGHT):
+            CANVAS.create_line([0,y_loc[y]],[WIDTH,y_loc[y]])
+        for x in range(N_AREAS_WIDTH):
+            CANVAS.create_line([x_loc[x],0],[x_loc[x],HEIGHT])
+    
+    
+    grid = [[x,y] for x in x_loc for y in y_loc]
+    grid = np.reshape(grid,(N_AREAS_WIDTH+1,N_AREAS_HEIGHT+1,2))
+    #print (grid)
+    return grid
+
+def gridGenerator(num):
+    """
+    Returns location in the shape of 0 2 
+                                     1 3 
+    """
+    grid = seperateAreas()
+    c = num%(N_AREAS_WIDTH)
+    r = int(num/(N_AREAS_WIDTH))
+    loc = np.concatenate((grid[c][r:r+2],grid[c+1][r:r+2]))
+    return loc
+
 def findBoids(area,boids):
     """
     Function that returns boid objects that are within the specified area. 
+    Format of area is the grid coordinates
     """
+    neighboordBoid = []
+    for b in boids: 
+        pos = b.pos
+        center = [(pos[0]+pos[2])/2,(pos[3]+pos[1])/2]
+        if center[1]>=area[0][1] and center[1]<=area[1][1] and center[0]>=area[1][0] and center[0]<=area[3][0]:
+            neighboordBoid.append(b)
+    return neighboordBoid    
+
+def updateGrid(boidPos,space):
+    """
+    Position of the boid 
+    """
+    center = [(boidPos[0]+boidPos[2])/2,(boidPos[1]+boidPos[3])/2]
+    if center[0]>WIDTH:
+        center[0] = WIDTH
+    elif center[1]>HEIGHT:
+        center[1] = HEIGHT
+    grids = space.grids
+
+    for g in grids: 
+        if center[1]>=g.coord[0][1] and center[1]<=g.coord[1][1] and center[0]>=g.coord[1][0] and center[0]<=g.coord[3][0]:
+            return g
+        
+
+#Caculates distances between two boids 
+def calculateDistance(boid1,boid2):
     return 0
 
+class space: 
+    def __init__(self,ballInterest = None):
+        balls = []
+        for i in range(NBALLS):
+            Initpos, size = init_Boid()
+            balls.append(Boid(Initpos,'blue',size,highVector=False))
+            if ballInterest is not None:  
+                if i ==ballInterest:
+                    spec = Boid(Initpos,'green',size,highVector=True,highFOV=True)
+                    balls.append(spec)     
+        self.boids = balls
+        self.width = WIDTH
+        self.height = HEIGHT
+        self.grids = [grid(i,self.boids) for i in range(TOTALGRID)]
+        
+class grid: 
+    def __init__(self,num,boids):
+        self.coord = gridGenerator(num)
+        self.boids = findBoids(self.coord,boids) 
+        self.num = num
+        nums = list(map(lambda x : rd.randint(0,7), range(NBALLS)))
+        self.color = COLORS[nums[rd.randint(0,7)]]
+
 class Boid:
+    #space = space()
     def __init__(self,pos,color,size,highVector=False, highFOV = False):
         """
         Initializes a boid object with the following parameters: 
-            pos: the position of the boid is given by a box with (x1,y1) and (x2,y2), where the 
+            pos: the initial position of the boid is given by a box with (x1,y1) and (x2,y2), where the 
                  the first pair of coordinates represents the top left of the box while the second
                  represents the bottom right. pos has the form of [x1,y1,x2,y2]
             boid: Object drawn on the screen, for now it is a circle but will change to a triangle 
@@ -38,17 +141,18 @@ class Boid:
                        TO DO: Implement to show velocity vector
         """
         self.pos = pos
-        self.boid = canvas.create_oval(pos[0],pos[1],pos[2],pos[3],fill=color)
+        self.boid = CANVAS.create_oval(pos[0],pos[1],pos[2],pos[3],fill=color)
         self.vx = 0
         self.vy = 0
         self.color = color
         self.size = size
         self.highVec = highVector
         self.highFOV = highFOV
-        self.line =None
+        self.line = None
         self.fieldOfView = None
-        self.alert = False
-            
+        self.alert = False 
+        self.gridN = None
+
     def move(self):
         """
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
@@ -60,40 +164,47 @@ class Boid:
         self.vx = self.vx + dr_r*np.cos(np.deg2rad(dr_theta))
         self.vy = self.vy + dr_r*np.sin(np.deg2rad(dr_theta))
         
-        canvas.move(self.boid,self.vx,self.vy)
-        self.pos = canvas.coords(self.boid)
-
-        self.alertImpactWall()
+        CANVAS.move(self.boid,self.vx,self.vy)
+        self.pos = CANVAS.coords(self.boid)
 
         if self.pos[3]>= HEIGHT or self.pos[1]<=0: 
             self.vy = self.flip(self.vy)
         if self.pos[2]>= WIDTH or self.pos[0]<=0:
             self.vx = self.flip(self.vx)
+        
+        self.pos = np.abs(self.pos)
+        self.gridN = updateGrid(self.pos, s)
+        #print (self.gridN.num)
+        if SHOWGRIDCOLOR:
+            CANVAS.itemconfig(self.boid,fill = self.gridN.color)
+        self.alertImpactWall()
+
+        
         angles, lineAng = self.vision()
 
         if self.highVec:
-            canvas.delete(self.line)
-            self.line = canvas.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
+            CANVAS.delete(self.line)
+            self.line = CANVAS.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
                         self.pos[0] + self.size - VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - VECTOR_SIZE*np.sin(lineAng),arrow='first')
             self.showDirectionVector(lineAng)
         
         if self.highFOV:
-            canvas.delete(self.fieldOfView)
-            self.fieldOfView = canvas.create_arc(self.pos[0] - self.size + LINE_SITE,self.pos[1] - self.size + LINE_SITE,
+            CANVAS.delete(self.fieldOfView)
+            self.fieldOfView = CANVAS.create_arc(self.pos[0] - self.size + LINE_SITE,self.pos[1] - self.size + LINE_SITE,
                         self.pos[2] + self.size - LINE_SITE,self.pos[3] + self.size - LINE_SITE,start = -np.rad2deg(angles[0])  , extent=FIELD_OF_VIEW)
             self.showFieldOfView(lineAng,angles)
 
     def showDirectionVector(self,lineAng):
-        canvas.delete(self.line)
-        canvas.move(self.line,self.vx,self.vy)
-        self.line = canvas.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
+        CANVAS.delete(self.line)
+        CANVAS.move(self.line,self.vx,self.vy)
+        self.line = CANVAS.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
                         self.pos[0] + self.size - VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - VECTOR_SIZE*np.sin(lineAng),arrow='first')
 
     def showFieldOfView(self,lineAng,angles):
-        canvas.delete(self.fieldOfView)
+        CANVAS.delete(self.fieldOfView)
 
-        canvas.move(self.fieldOfView,self.vx,self.vy)
-        self.fieldOfView = canvas.create_arc(self.pos[0] - self.size + LINE_SITE, self.pos[1] - self.size + LINE_SITE,
+        CANVAS.move(self.fieldOfView,self.vx,self.vy)
+        self.fieldOfView = CANVAS.create_arc(self.pos[0] - self.size + LINE_SITE, self.pos[1] - self.size + LINE_SITE,
                         self.pos[2] + self.size - LINE_SITE,self.pos[3] + self.size - LINE_SITE, start = -np.rad2deg(angles[0]),extent=FIELD_OF_VIEW)
 
     def flip(self,v):
@@ -124,47 +235,38 @@ class Boid:
     def alertImpactWall(self):
         if self.pos[3]>= HEIGHT-LINE_SITE or self.pos[1]<=0+LINE_SITE: 
             self.alert = TRUE
-            canvas.itemconfig(self.boid,fill='red')
+            CANVAS.itemconfig(self.boid,fill='red')
         elif self.pos[2]>= WIDTH-LINE_SITE or self.pos[0]<=0+LINE_SITE:
             self.alert = TRUE
-            canvas.itemconfig(self.boid,fill='red')
+            CANVAS.itemconfig(self.boid,fill='red')
         else:
             self.alert = False
-            canvas.itemconfig(self.boid,fill='blue')
 
+
+    #def scanEnvironement():
     #def turn():
 
     #def alertBoidCollision(self):
 
-
-def init_Boid():
-    size = rd.randint(5,MAX_SIZE)
-    px = rd.randint(0,WIDTH)
-    py = rd.randint(0,HEIGHT)
-    return [px-size,py-size,px+size,py+size],size
-
-tk = Tk()
-canvas = Canvas(tk,width=WIDTH,height=HEIGHT)
-
-nballs = 100
+ballInterest = 99
+s=space(ballInterest=ballInterest)
 balls = []
 
-ballInterest = 99
 
-for i in range(nballs):
-    Initpos, size = init_Boid()
-    balls.append(Boid(Initpos,'blue',size,highVector=False))
-    if i ==ballInterest:
-         spec = Boid(Initpos,'green',size,highVector=True,highFOV=True)
-         balls.append(spec)
+#for i in range(n):
+#    Initpos, size = init_Boid()
+#    balls.append(Boid(Initpos,'blue',size,highVector=False))
+#    if i ==ballInterest:
+#         spec = Boid(Initpos,'green',size,highVector=True,highFOV=True)
+#         balls.append(spec)
             
-posBallInt = balls[ballInterest].pos
+#posBallInt = balls[ballInterest].pos
 
-canvas.pack()  
+CANVAS.pack()  
 
 while (True):
-    [b.move() for b in balls]
-    tk.update()
-    time.sleep(0.09)
+    [b.move() for b in s.boids]
+    TK.update()
+    time.sleep(0.05)
 
-tk.mainloop()
+TK.mainloop()
