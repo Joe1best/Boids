@@ -7,23 +7,24 @@ import random as rd
 import matplotlib.pylab as pl
 
 
-MAX_speed = 2
+MAX_speed = 20
+MIN_speed = 5
 WIDTH = 1000
 HEIGHT = 800
-N_AREAS_WIDTH = 10
+N_AREAS_WIDTH = 5
 N_AREAS_HEIGHT = 5
 TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
 
 
 MAX_SIZE = 10
 VECTOR_SIZE = 30
-LINE_SITE = 40
+LINE_SITE = 80
 FIELD_OF_VIEW = 270
 
-NBALLS = 100
+NBALLS = 50
 
 COLORS = [ "pink", "blue", "green", "yellow", "purple", "orange", "white", "black" ]
-SHOWGRIDCOLOR = True
+SHOWGRIDCOLOR = False
 SHOWGRIDS = True
 
 TK = Tk()
@@ -52,10 +53,8 @@ def seperateAreas():
         for x in range(N_AREAS_WIDTH):
             CANVAS.create_line([x_loc[x],0],[x_loc[x],HEIGHT])
     
-    
     grid = [[x,y] for x in x_loc for y in y_loc]
     grid = np.reshape(grid,(N_AREAS_WIDTH+1,N_AREAS_HEIGHT+1,2))
-    #print (grid)
     return grid
 
 def gridGenerator(num):
@@ -96,12 +95,18 @@ def updateGrid(boidPos,space):
     for g in grids: 
         if center[1]>=g.coord[0][1] and center[1]<=g.coord[1][1] and center[0]>=g.coord[1][0] and center[0]<=g.coord[3][0]:
             return g
-    print (center)
         
-
 #Caculates distances between two boids 
 def calculateDistance(boid1,boid2):
-    return 0
+    pos1 = boid1.pos
+    pos2 = boid2.pos
+
+    center1 = [(pos1[0]+pos1[2])/2,(pos1[3]+pos1[1])/2]
+    center2 = [(pos2[0]+pos2[2])/2,(pos2[3]+pos2[1])/2]
+
+    d = np.sqrt((center1[0]-center2[0])**2+(center1[1]-center2[1])**2)
+
+    return d
 
 class space: 
     def __init__(self,ballInterest = None):
@@ -141,10 +146,16 @@ class Boid:
             highlight: If want to focus on a specific boid, this will show its field of view. 
                        TO DO: Implement to show velocity vector
         """
+        dr_theta = rd.randint(0,361)
+        dr_r = rd.randint(-MAX_speed,MAX_speed+1)
+        while np.abs(dr_r) < MIN_speed:
+            dr_r = rd.randint(-MAX_speed,MAX_speed+1)
+
+
         self.pos = pos
         self.boid = CANVAS.create_oval(pos[0],pos[1],pos[2],pos[3],fill=color)
-        self.vx = 0
-        self.vy = 0
+        self.vx = dr_r*np.cos(np.deg2rad(dr_theta))
+        self.vy =  dr_r*np.sin(np.deg2rad(dr_theta))
         self.color = color
         self.size = size
         self.highVec = highVector
@@ -153,18 +164,23 @@ class Boid:
         self.fieldOfView = None
         self.alert = False 
         self.gridN = None
+        self.mates = None   #friendly neighborhood boids that are within the field
+                            #of view of this boid. 
 
     def move(self):
         """
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
         TO DO: make it steer away from bounds and not just hit it.
         """
-        dr_theta = rd.randint(0,361)
-        dr_r = rd.randint(-MAX_speed,MAX_speed+1)
+        #dr_theta = rd.randint(0,361)
+        #dr_r = rd.randint(-MAX_speed,MAX_speed+1)
         
-        self.vx = self.vx + dr_r*np.cos(np.deg2rad(dr_theta))
-        self.vy = self.vy + dr_r*np.sin(np.deg2rad(dr_theta))
+        #self.vx = self.vx + dr_r*np.cos(np.deg2rad(dr_theta))
+        #self.vy = self.vy + dr_r*np.sin(np.deg2rad(dr_theta))
         
+        #self.vx = dr_r*np.cos(np.deg2rad(dr_theta))
+        #self.vy = dr_r*np.sin(np.deg2rad(dr_theta))
+
         CANVAS.move(self.boid,self.vx,self.vy)
         self.pos = CANVAS.coords(self.boid)
 
@@ -175,7 +191,7 @@ class Boid:
         
         self.pos = np.abs(self.pos)
         self.gridN = updateGrid(self.pos, s)
-        #print (self.gridN.num)
+
         if SHOWGRIDCOLOR:
             CANVAS.itemconfig(self.boid,fill = self.gridN.color)
         self.alertImpactWall()
@@ -218,6 +234,9 @@ class Boid:
         """
         Calculates the field of view of the boid. This is used to figure out how many boids are in the vicinity 
         so it can avoid them.
+            Input(s): Boid (object)
+            Ouput(s): vision (float array) extreme angle of the field of view 
+                      angle (float) directional angle of the boid object 
         """
         if self.vx == 0 and self.vy<0: 
             angle = 3*np.pi/2
@@ -242,6 +261,24 @@ class Boid:
             CANVAS.itemconfig(self.boid,fill='red')
         else:
             self.alert = False
+            if SHOWGRIDCOLOR is False: 
+                CANVAS.itemconfig(self.boid,fill='blue')
+
+    def rule1(self,B,boids):
+        """
+        Implements the first rule of the boid project; each boid must avoid hitting
+        each other.
+            Input(s): boids object that are within a specific area of space.  
+        """
+        for b in boids: 
+            d = calculateDistance(B,b)
+            if d <= b.size + B.size: 
+                return 0
+
+
+        return 0 
+
+
 
 
     #def scanEnvironement():
@@ -249,7 +286,7 @@ class Boid:
 
     #def alertBoidCollision(self):
 
-ballInterest = 99
+ballInterest = 20
 s=space(ballInterest=ballInterest)
 balls = []
 
@@ -268,6 +305,6 @@ CANVAS.pack()
 while (True):
     [b.move() for b in s.boids]
     TK.update()
-    time.sleep(0.009)
+    time.sleep(0.09)
 
 TK.mainloop()
