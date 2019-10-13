@@ -89,13 +89,14 @@ def updateGrid(boidPos,space):
     center = [(boidPos[0]+boidPos[2])/2,(boidPos[1]+boidPos[3])/2]
     if center[0]>WIDTH:
         center[0] = WIDTH
-    elif center[1]>HEIGHT:
+    if center[1]>HEIGHT:
         center[1] = HEIGHT
     grids = space.grids
 
     for g in grids: 
         if center[1]>=g.coord[0][1] and center[1]<=g.coord[1][1] and center[0]>=g.coord[1][0] and center[0]<=g.coord[3][0]:
             return g
+    print (center)
         
 
 #Caculates distances between two boids 
@@ -267,6 +268,6 @@ CANVAS.pack()
 while (True):
     [b.move() for b in s.boids]
     TK.update()
-    time.sleep(0.05)
+    time.sleep(0.009)
 
 TK.mainloop()
