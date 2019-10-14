@@ -8,7 +8,7 @@ import matplotlib.pylab as pl
 
 
 MAX_speed = 20
-MIN_speed = 5
+MIN_speed = 10
 WIDTH = 1000
 HEIGHT = 800
 N_AREAS_WIDTH = 5
@@ -17,11 +17,13 @@ TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
 
 
 MAX_SIZE = 10
+MIN_SIZE = 5
 VECTOR_SIZE = 30
 LINE_SITE = 80
 FIELD_OF_VIEW = 270
 
 NBALLS = 50
+TOL = 10   #Make this as a function of total velocity 
 
 COLORS = [ "pink", "blue", "green", "yellow", "purple", "orange", "white", "black" ]
 SHOWGRIDCOLOR = False
@@ -33,13 +35,11 @@ CANVAS = Canvas(TK,width=WIDTH,height=HEIGHT)
 Defines a boid in space and time. This has all the functions that would affect a singular boid. 
 """
 
-"""
-NEED TO FIX THIS 
-"""
+
 def init_Boid():
-    size = rd.randint(5,MAX_SIZE)
-    px = rd.randint(0,WIDTH)
-    py = rd.randint(0,HEIGHT)
+    size = rd.randint(MIN_SIZE,MAX_SIZE)
+    px = rd.randint(size,WIDTH-size)   #Makes sure that the boid does not spawn outside the boundary
+    py = rd.randint(size,HEIGHT-size)
     return [px-size,py-size,px+size,py+size],size
 
 def seperateAreas():
@@ -81,32 +81,94 @@ def findBoids(area,boids):
             neighboordBoid.append(b)
     return neighboordBoid    
 
-def updateGrid(boidPos,space):
+def updateGrid(boidPos,space,size):
     """
     Position of the boid 
     """
     center = [(boidPos[0]+boidPos[2])/2,(boidPos[1]+boidPos[3])/2]
-    if center[0]>WIDTH:
-        center[0] = WIDTH
-    if center[1]>HEIGHT:
-        center[1] = HEIGHT
+    print (center[0]+size,center[1]+size)
+    if center[0]+size>WIDTH:
+        center[0] = center[0] - (center[0]+size-WIDTH)
+    if center[1]+size>HEIGHT:
+        center[1] = center[1] - (center[1]+size-HEIGHT)
+    if center[0]+size<0:
+        center[0]= center[0] + (-center[0]-size)
+        print (center[0])
     grids = space.grids
 
     for g in grids: 
         if center[1]>=g.coord[0][1] and center[1]<=g.coord[1][1] and center[0]>=g.coord[1][0] and center[0]<=g.coord[3][0]:
             return g
-        
+
+
+def centerPos(boid):
+    pos = boid.pos
+    center = [(pos[0]+pos[2])/2,(pos[3]+pos[1])/2]
+    return center
+
 #Caculates distances between two boids 
 def calculateDistance(boid1,boid2):
-    pos1 = boid1.pos
-    pos2 = boid2.pos
 
-    center1 = [(pos1[0]+pos1[2])/2,(pos1[3]+pos1[1])/2]
-    center2 = [(pos2[0]+pos2[2])/2,(pos2[3]+pos2[1])/2]
+    #print (pos1)
+    #print (pos2,'\n')
+    center1 = centerPos(boid1)
+    center2 = centerPos(boid2)
 
     d = np.sqrt((center1[0]-center2[0])**2+(center1[1]-center2[1])**2)
 
     return d
+
+def rotate(vx,vy,angle):
+    """
+    Rotates the frame by an angle "angle"
+    """
+    vx_r = vx*np.cos(angle) - vy*np.sin(angle)
+    vy_r = vx*np.sin(angle) + vy*np.cos(angle)
+    return vx_r,vy_r
+
+def ellasticCollision(boid1,boid2):
+    """
+    Code in fictitious ellastic collision for each particle. Fictitious here means that 
+    the particles actually dont hit, but bounce off a point that is equal to the shortest 
+    distance between them. This limit is predetermined and depends on the max velocity of 
+    both particles.
+
+    These systems are solved by rotating the frame of reference of the two balls such that it
+    is possible to solve the system in 1-D (since the equations there are known) and then 
+    translating back into 2-D again by rotating the frame of reference back to its initial state. 
+    """ 
+    xVelDiff = boid1.vx - boid2.vx
+    yVelDiff = boid1.vy - boid2.vy
+
+    center1 = centerPos(boid1)
+    center2 = centerPos(boid2)
+
+    xDist = center2[0] - center1[0]
+    yDist = center2[1] - center1[1]
+
+    m1 = 1
+    m2 = 1
+
+
+    #Prevents accidental overlap of boids 
+    #if xVelDiff*xDist + yVelDiff*yDist >=0:
+
+        #Angle between two "colliding" particles
+    angle = -np.arctan2(center2[1]-center1[1],center2[0]-center1[0])
+    
+    u1x,u1y = rotate(boid1.vx,boid1.vy,angle)
+    u2x,u2y = rotate(boid2.vx,boid2.vy,angle)
+
+    v1x = u1x*(m1-m2)/(m1+m2) + u2x*2*m2/(m1+m2)
+    v1y = u1y
+
+    v2x = u2x*(m1-m2)/(m1+m2) + u1x*2*m2/(m1+m2)
+    v2y = u2y 
+
+    v1fx,v1fy = rotate(v1x,v1y,-angle)
+    v2fx,v2fy = rotate(v2x,v2y,-angle)
+
+    return v1fx,v1fy,v2fx,v2fy
 
 class space: 
     def __init__(self,ballInterest = None):
@@ -114,6 +176,19 @@ class space:
         for i in range(NBALLS):
             Initpos, size = init_Boid()
             balls.append(Boid(Initpos,'blue',size,highVector=False))
+            
+            #Loop below is to make sure that the particles are not spawning in inside each other
+            #to begin with.
+            if i !=0:
+                for generatedB in balls[:-2]: 
+                    d = calculateDistance(balls[-1],generatedB)
+                    while d - (balls[-1].size+generatedB.size) < 0 :
+                        Initpos, size = init_Boid()
+                        balls[-1] = Boid(Initpos,'blue',size,highVector=False)
+                        d = calculateDistance(balls[-1],generatedB)
+
+            
+            #If there is a boid we want to observe 
             if ballInterest is not None:  
                 if i ==ballInterest:
                     spec = Boid(Initpos,'green',size,highVector=True,highFOV=True)
@@ -151,6 +226,7 @@ class Boid:
         while np.abs(dr_r) < MIN_speed:
             dr_r = rd.randint(-MAX_speed,MAX_speed+1)
 
+        #print (dr_r)
 
         self.pos = pos
         self.boid = CANVAS.create_oval(pos[0],pos[1],pos[2],pos[3],fill=color)
@@ -166,6 +242,12 @@ class Boid:
         self.gridN = None
         self.mates = None   #friendly neighborhood boids that are within the field
                             #of view of this boid. 
+
+    def bounceWall(self):
+        if self.pos[3]>= HEIGHT or self.pos[1]<=0: 
+            self.vy = self.flip(self.vy)
+        if self.pos[2]>= WIDTH or self.pos[0]<=0:
+            self.vx = self.flip(self.vx)
 
     def move(self):
         """
@@ -184,13 +266,14 @@ class Boid:
         CANVAS.move(self.boid,self.vx,self.vy)
         self.pos = CANVAS.coords(self.boid)
 
-        if self.pos[3]>= HEIGHT or self.pos[1]<=0: 
-            self.vy = self.flip(self.vy)
-        if self.pos[2]>= WIDTH or self.pos[0]<=0:
-            self.vx = self.flip(self.vx)
+        self.bounceWall()
         
-        self.pos = np.abs(self.pos)
-        self.gridN = updateGrid(self.pos, s)
+        #self.pos = np.abs(self.pos)
+        self.gridN = updateGrid(self.pos, s,self.size)
+        self.mates = self.findMates()
+        self.rule1(self.mates)
+
+        self.bounceWall()
 
         if SHOWGRIDCOLOR:
             CANVAS.itemconfig(self.boid,fill = self.gridN.color)
@@ -264,21 +347,45 @@ class Boid:
             if SHOWGRIDCOLOR is False: 
                 CANVAS.itemconfig(self.boid,fill='blue')
 
-    def rule1(self,B,boids):
+    def findMates(self):
+        """
+        Finds mates that are within the field of view of the boid
+            Input(s): boid (object)
+            Output(s): mates (array of objects)  
+        """
+        mates = []
+        potentialColl = self.gridN.boids
+        dummy, angle = self.vision()
+        pos = self.pos
+        center = [(pos[0]+pos[2])/2,(pos[1]+pos[3])/2]
+        for p in potentialColl:
+
+            #Makes sure that we are not comparing the boid with itself
+            if p == self:
+                pass
+            else:
+                posM = p.pos
+                centerM = [(posM[0]+posM[2])/2,(posM[1]+posM[3])/2]
+                if (posM[0]-center[0])**2+(posM[1]-center[1])**2 <=LINE_SITE**2 or (posM[2]-center[0])**2+(posM[3]-center[1])**2 <=LINE_SITE**2:
+                    if np.arctan2(centerM[1],centerM[0]) > angle and np.arctan2(centerM[1],center[0]) < 2*np.pi - angle: 
+                        mates.append(p)
+        return mates
+
+    
+    def rule1(self,boids):
         """
         Implements the first rule of the boid project; each boid must avoid hitting
         each other.
             Input(s): boids object that are within a specific area of space.  
         """
         for b in boids: 
-            d = calculateDistance(B,b)
-            if d <= b.size + B.size: 
-                return 0
-
-
-        return 0 
-
-
+            d = calculateDistance(self,b)
+            if d <= (self.size + b.size + TOL): 
+                v1x,v1y,v2x,v2y = ellasticCollision(self,b)
+                self.vx = v1x
+                self.vy = v1y 
+                b.vx = v2x
+                b.vy = v2y    
 
 
     #def scanEnvironement():
