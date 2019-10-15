@@ -22,10 +22,10 @@ VECTOR_SIZE = 30
 LINE_SITE = 80
 FIELD_OF_VIEW = 270
 
-NBALLS = 50
+NBALLS = 100
 TOL = 10   #Make this as a function of total velocity 
 
-COLORS = [ "pink", "blue", "green", "yellow", "purple", "orange", "white", "black" ]
+COLORS = [ "pink", "cyan", "green", "yellow", "purple", "orange", "white", "black" ]
 SHOWGRIDCOLOR = False
 SHOWGRIDS = True
 
@@ -88,21 +88,22 @@ def updateGrid(boid,space,size):
     boidPos = boid.pos
     boidPos = check(boidPos)
     center = [(boidPos[0]+boidPos[2])/2,(boidPos[1]+boidPos[3])/2]
-    #if center[0]+size>WIDTH:
-    #    center[0] = center[0] - (center[0]+size-WIDTH)
-    #if center[1]+size>HEIGHT:
-    #    center[1] = center[1] - (center[1]+size-HEIGHT)
-    #if center[0]+size<0:
-    #    center[0]= center[0] + (-center[0]-size)
-    #if center[1]+size<0:
-    #    center[1] = center[1] + (-center[1]-size)
     grids = space.grids
 
     for g in grids: 
         if center[1]>=g.coord[0][1] and center[1]<=g.coord[1][1] and center[0]>=g.coord[1][0] and center[0]<=g.coord[3][0]:
             return g
-    print (boidPos)
 
+def returnNeighborGrid(grid):
+    """
+    returns neighboring grids 
+    """
+    grids = s.grids
+    grids = np.reshape(grids,(N_AREAS_WIDTH,N_AREAS_HEIGHT))
+    print (grids)
+    
+    
+    return 0
 def check(boidpos):
     """
     Makes sure that the positions are within the bounds 
@@ -200,13 +201,20 @@ class space:
             
             #Loop below is to make sure that the particles are not spawning in inside each other
             #to begin with.
+            j = 0
             if i !=0:
-                for generatedB in balls[:-2]: 
-                    d = calculateDistance(balls[-1],generatedB)
-                    while d - (balls[-1].size+generatedB.size) < 0 :
+                while j < len(balls): 
+                    d = calculateDistance(balls[-1],balls[j])
+                    if d - (balls[-1].size+balls[j].size)<0 and balls[-1] != balls[j]:
+                        CANVAS.delete(balls[-1].boid)
                         Initpos, size = init_Boid()
-                        balls[-1] = Boid(Initpos,'blue',size,highVector=False)
-                        d = calculateDistance(balls[-1],generatedB)
+                        balls.pop()
+                        balls.append(Boid(Initpos,'blue',size,highVector=False))
+                        d = calculateDistance(balls[-1],balls[j])
+                        j=-1
+                    else: 
+                        j= j +1
+                #print (balls)
 
             
             #If there is a boid we want to observe 
@@ -223,7 +231,7 @@ class space:
 class grid: 
     def __init__(self,num,boids):
         self.coord = gridGenerator(num)
-        self.boids = findBoids(self.coord,boids) 
+        self.boids = findBoids(self.coord,boids) #FIX THIS FUNCTION, IT IS NOT WORKING
         self.num = num
         nums = list(map(lambda x : rd.randint(0,7), range(NBALLS)))
         self.color = COLORS[nums[rd.randint(0,7)]]
@@ -265,6 +273,7 @@ class Boid:
         self.mates = None   #friendly neighborhood boids that are within the field
                             #of view of this boid. 
         self.special = False
+    
     def bounceWall(self):
         if self.pos[3]>= HEIGHT or self.pos[1]<=0: 
             self.vy = self.flip(self.vy)
@@ -295,12 +304,11 @@ class Boid:
         self.pos = CANVAS.coords(self.boid)
 
         #self.pos = np.abs(self.pos)
-        self.gridN = updateGrid(self, s,self.size)
+        self.gridN = updateGrid(self,s,self.size)
             
         self.mates = self.findMates()
         if self.special:
             for m in self.mates:
-
                 print (m.pos)
         
         self.rule1(self.mates)
@@ -385,8 +393,12 @@ class Boid:
             Input(s): boid (object)
             Output(s): mates (array of objects)  
         """
+        grids = s.grids
         mates = []
         potentialColl = self.gridN.boids
+        #if self.gridN.num == 7:
+        #    for b in self.gridN.boids:
+        #       print (b.pos)
         dummy, angle = self.vision()
         pos = self.pos
         center = [(pos[0]+pos[2])/2,(pos[1]+pos[3])/2]
@@ -399,11 +411,12 @@ class Boid:
                 posM = p.pos
                 centerM = [(posM[0]+posM[2])/2,(posM[1]+posM[3])/2]
                 if (posM[0]-center[0])**2+(posM[1]-center[1])**2 <=LINE_SITE**2 or (posM[2]-center[0])**2+(posM[3]-center[1])**2 <=LINE_SITE**2:
+                    if self.special:
+                        print (np.rad2deg(np.arctan2(centerM[1],centerM[0])))
                     if np.arctan2(centerM[1],centerM[0]) > angle and np.arctan2(centerM[1],center[0]) < 2*np.pi - angle: 
                         mates.append(p)
         return mates
 
-    
     def rule1(self,boids):
         """
         Implements the first rule of the boid project; each boid must avoid hitting
@@ -425,9 +438,10 @@ class Boid:
 
     #def alertBoidCollision(self):
 
-ballInterest = 20
+ballInterest = 9
 s=space(ballInterest=ballInterest)
 balls = []
+returnNeighborGrid(s.grids)
 
 
 #for i in range(n):
@@ -441,9 +455,9 @@ balls = []
 
 CANVAS.pack()  
 
-while (True):
-    [b.move() for b in s.boids]
-    TK.update()
-    time.sleep(0.09)
+#while (True):
+#    [b.move() for b in s.boids]
+#    TK.update()
+#    time.sleep(0.09)
 
 TK.mainloop()
