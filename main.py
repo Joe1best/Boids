@@ -81,25 +81,46 @@ def findBoids(area,boids):
             neighboordBoid.append(b)
     return neighboordBoid    
 
-def updateGrid(boidPos,space,size):
+def updateGrid(boid,space,size):
     """
     Position of the boid 
     """
+    boidPos = boid.pos
+    boidPos = check(boidPos)
     center = [(boidPos[0]+boidPos[2])/2,(boidPos[1]+boidPos[3])/2]
-    print (center[0]+size,center[1]+size)
-    if center[0]+size>WIDTH:
-        center[0] = center[0] - (center[0]+size-WIDTH)
-    if center[1]+size>HEIGHT:
-        center[1] = center[1] - (center[1]+size-HEIGHT)
-    if center[0]+size<0:
-        center[0]= center[0] + (-center[0]-size)
-        print (center[0])
+    #if center[0]+size>WIDTH:
+    #    center[0] = center[0] - (center[0]+size-WIDTH)
+    #if center[1]+size>HEIGHT:
+    #    center[1] = center[1] - (center[1]+size-HEIGHT)
+    #if center[0]+size<0:
+    #    center[0]= center[0] + (-center[0]-size)
+    #if center[1]+size<0:
+    #    center[1] = center[1] + (-center[1]-size)
     grids = space.grids
 
     for g in grids: 
         if center[1]>=g.coord[0][1] and center[1]<=g.coord[1][1] and center[0]>=g.coord[1][0] and center[0]<=g.coord[3][0]:
             return g
+    print (boidPos)
 
+def check(boidpos):
+    """
+    Makes sure that the positions are within the bounds 
+    """
+    boidpos = np.asarray(boidpos)
+    boidpos[boidpos<0] = 0 
+    boidpos = list(boidpos)
+
+    if boidpos[3]>HEIGHT:
+        boidpos[3] = HEIGHT
+    if boidpos[1]>HEIGHT:
+        boidpos[1] = HEIGHT
+    
+    if boidpos[0] >WIDTH:
+        boidpos[0] = WIDTH 
+    if boidpos[2] > WIDTH:
+        boidpos[2] = WIDTH 
+    return boidpos
 
 def centerPos(boid):
     pos = boid.pos
@@ -192,6 +213,7 @@ class space:
             if ballInterest is not None:  
                 if i ==ballInterest:
                     spec = Boid(Initpos,'green',size,highVector=True,highFOV=True)
+                    spec.special = True
                     balls.append(spec)     
         self.boids = balls
         self.width = WIDTH
@@ -242,13 +264,13 @@ class Boid:
         self.gridN = None
         self.mates = None   #friendly neighborhood boids that are within the field
                             #of view of this boid. 
-
+        self.special = False
     def bounceWall(self):
         if self.pos[3]>= HEIGHT or self.pos[1]<=0: 
             self.vy = self.flip(self.vy)
         if self.pos[2]>= WIDTH or self.pos[0]<=0:
             self.vx = self.flip(self.vx)
-
+        
     def move(self):
         """
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
@@ -266,14 +288,24 @@ class Boid:
         CANVAS.move(self.boid,self.vx,self.vy)
         self.pos = CANVAS.coords(self.boid)
 
+        
         self.bounceWall()
         
+
+        self.pos = CANVAS.coords(self.boid)
+
         #self.pos = np.abs(self.pos)
-        self.gridN = updateGrid(self.pos, s,self.size)
+        self.gridN = updateGrid(self, s,self.size)
+            
         self.mates = self.findMates()
+        if self.special:
+            for m in self.mates:
+
+                print (m.pos)
+        
         self.rule1(self.mates)
 
-        self.bounceWall()
+        #self.bounceWall()
 
         if SHOWGRIDCOLOR:
             CANVAS.itemconfig(self.boid,fill = self.gridN.color)
