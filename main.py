@@ -5,6 +5,8 @@ import time
 import matplotlib.pyplot as plt 
 import random as rd
 import matplotlib.pylab as pl
+import numpy.linalg as la
+
 
 
 MAX_speed = 20
@@ -22,7 +24,7 @@ VECTOR_SIZE = 30
 LINE_SITE = 80
 FIELD_OF_VIEW = 270
 
-NBALLS = 100
+NBALLS = 8
 TOL = 10   #Make this as a function of total velocity 
 
 COLORS = [ "pink", "cyan", "green", "yellow", "purple", "orange", "white", "black" ]
@@ -31,9 +33,7 @@ SHOWGRIDS = True
 
 TK = Tk()
 CANVAS = Canvas(TK,width=WIDTH,height=HEIGHT)
-"""
-Defines a boid in space and time. This has all the functions that would affect a singular boid. 
-"""
+ballInterest = 2
 
 
 def init_Boid():
@@ -211,6 +211,14 @@ def calculateDistance(boid1,boid2):
 
     return d
 
+def vectAng(v1,v2):
+    """ 
+    Returns the angle in radians between vectors 'v1' and 'v2'    
+    """
+    cosang = np.dot(v1, v2)
+    sinang = la.norm(np.cross(v1, v2))
+    return np.arctan2(sinang, cosang)
+
 def rotate(vx,vy,angle):
     """
     Rotates the frame by an angle "angle"
@@ -296,14 +304,24 @@ class space:
         self.width = WIDTH
         self.height = HEIGHT
         self.grids = [grid(i,self.boids) for i in range(TOTALGRID)]
+
+    def updateSpace(self):
+        [g.update(self.boids) for g in self.grids]
         
 class grid: 
     def __init__(self,num,boids):
         self.coord = gridGenerator(num)
-        self.boids = findBoids(self.coord,boids) #FIX THIS FUNCTION, IT IS NOT WORKING
+        self.boids = findBoids(self.coord,boids) 
         self.num = num
         nums = list(map(lambda x : rd.randint(0,7), range(NBALLS)))
         self.color = COLORS[nums[rd.randint(0,7)]]
+    
+    def update(self,boids):
+        """
+        Function that updates the boids that are within the grids everytime
+        it is called
+        """
+        self.boids = findBoids(self.coord,boids)
 
 class Boid:
     #space = space()
@@ -354,18 +372,11 @@ class Boid:
         """
         CANVAS.move(self.boid,self.vx,self.vy)
         self.pos = CANVAS.coords(self.boid)
-        
         self.bounceWall()
-
         self.pos = CANVAS.coords(self.boid)
-
         self.gridN = updateGrid(self,s,self.size)
-            
         self.mates = self.findMates()
-        
         self.rule1(self.mates)
-
-        #self.bounceWall()
 
         if SHOWGRIDCOLOR:
             CANVAS.itemconfig(self.boid,fill = self.gridN.color)
@@ -410,7 +421,7 @@ class Boid:
         so it can avoid them.
             Input(s): Boid (object)
             Ouput(s): vision (float array) extreme angle of the field of view 
-                      angle (float) directional angle of the boid object 
+                      angle (float) angle at which the boid is pointing
         """
         if self.vx == 0 and self.vy<0: 
             angle = 3*np.pi/2
@@ -447,9 +458,11 @@ class Boid:
         mates = []
         potentialColl = []
         nGrid = returnNeighborGrid(self.gridN)
+        nGrid.extend([self.gridN])
         for g in nGrid:
             potentialColl.extend(g.boids)
-        dummy, angle = self.vision()
+        limitAng, angle = self.vision()
+        dirVec = [np.cos(angle),np.sin(angle)]
         p = self.pos
         center = [(p[0]+p[2])/2,(p[1]+p[3])/2]
         for p in potentialColl:
@@ -458,10 +471,13 @@ class Boid:
                 continue
             posM = p.pos
             centerM = [(posM[0]+posM[2])/2,(posM[1]+posM[3])/2]
+            angleFromSelf = np.arctan2(center[1]-centerM[1],center[0]-centerM[0])
+            vecFromSelf = [np.cos(angleFromSelf),np.sin(angleFromSelf)]
             if (posM[0]-center[0])**2+(posM[1]-center[1])**2 <=LINE_SITE**2 or (posM[2]-center[0])**2+(posM[3]-center[1])**2 <=LINE_SITE**2:
-                CANVAS.itemconfig(p,fill='green')
-                if np.arctan2(centerM[1]-center[1],centerM[0]-center[0]) > angle and np.arctan2(centerM[1]-center[1],centerM[0]-center[0]) < 2*np.pi - angle: 
+                if vectAng(dirVec,vecFromSelf) < FIELD_OF_VIEW/2 : 
                     mates.append(p)
+        if self.special:
+            print (mates)
         return mates
 
     def rule1(self,boids):
@@ -484,24 +500,17 @@ class Boid:
     #def turn():
 
     #def alertBoidCollision(self):
-
-ballInterest = 9
 s=space(ballInterest=ballInterest)
-balls = []
-#for i in range(n):
-#    Initpos, size = init_Boid()
-#    balls.append(Boid(Initpos,'blue',size,highVector=False))
-#    if i ==ballInterest:
-#         spec = Boid(Initpos,'green',size,highVector=True,highFOV=True)
-#         balls.append(spec)
-            
-#posBallInt = balls[ballInterest].pos
 
-CANVAS.pack()  
+def run():
+    CANVAS.pack()
+    
+    while (True):
+        s.updateSpace()
+        #[print (g.boids) for g in s.grids if g.num==1]
+        [b.move() for b in s.boids]
+        TK.update()
+        time.sleep(0.09)
+    TK.mainloop()
 
-while (True):
-    [b.move() for b in s.boids]
-    TK.update()
-    time.sleep(0.09)
-
-TK.mainloop()
+run()
