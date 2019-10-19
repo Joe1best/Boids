@@ -11,8 +11,8 @@ MAX_speed = 20
 MIN_speed = 10
 WIDTH = 1000
 HEIGHT = 800
-N_AREAS_WIDTH = 5
-N_AREAS_HEIGHT = 5
+N_AREAS_WIDTH = 6
+N_AREAS_HEIGHT = 4
 TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
 
 
@@ -98,12 +98,86 @@ def returnNeighborGrid(grid):
     """
     returns neighboring grids 
     """
+    def neighbors8(grids): return [x for x in grids if x.num%N_AREAS_WIDTH!=0 and (x.num+1)%N_AREAS_WIDTH!=0 and int(x.num/N_AREAS_WIDTH)!=0 and int(x.num/N_AREAS_WIDTH)!=N_AREAS_HEIGHT-1]
+    
+    def neighbors3(grids): return [grids[0],grids[N_AREAS_WIDTH-1],grids[N_AREAS_WIDTH*(N_AREAS_HEIGHT-1)],grids[N_AREAS_HEIGHT*N_AREAS_WIDTH-1]]
+    
     grids = s.grids
-    grids = np.reshape(grids,(N_AREAS_WIDTH,N_AREAS_HEIGHT))
-    print (grids)
+    grids = np.reshape(grids,(N_AREAS_WIDTH*N_AREAS_HEIGHT,))
+    N8 = neighbors8(grids)
+    N3 = neighbors3(grids)
+    N5 = [x for x in grids if x not in N8 and x not in N3]
+    neighborG = []
+    if grid in N8:
+        g = grid.num
+        n_right = g + 1
+        n_left = g - 1
+        n_top = g - N_AREAS_WIDTH
+        n_bottom = g + N_AREAS_WIDTH
+        n_corner_1 = n_top + 1
+        n_corner_2 = n_top - 1 
+        n_corner_3 = n_bottom + 1
+        n_corner_4 = n_bottom - 1
+        neighborG.extend([grids[n_right],grids[n_left],grids[n_top],grids[n_bottom],grids[n_corner_1],
+                        grids[n_corner_2], grids[n_corner_3],grids[n_corner_4]])
+    if grid in N5:
+        cond = int(grid.num/N_AREAS_WIDTH)
+        cond_1 = grid.num%N_AREAS_WIDTH
+        g = grid.num
+        if cond==0:
+            n_left = g - 1
+            n_right = g + 1
+            n_bottom = g + N_AREAS_WIDTH
+            n_corner_1 = n_bottom - 1 
+            n_corner_2 = n_bottom + 1 
+            neighborG.extend([grids[n_left],grids[n_right],grids[n_bottom],grids[n_corner_1],grids[n_corner_2]])
+        elif cond == N_AREAS_HEIGHT-1:
+            n_left = g - 1
+            n_right = g + 1
+            n_top = g - N_AREAS_WIDTH
+            n_corner_1 = n_top - 1 
+            n_corner_2 = n_top + 1
+            neighborG.extend([grids[n_left],grids[n_right],grids[n_top],grids[n_corner_1],grids[n_corner_2]])
+        elif cond_1 == 0:
+            n_right = g + 1
+            n_top = g - N_AREAS_WIDTH
+            n_bottom = g + N_AREAS_WIDTH
+            n_corner_1 = n_top + 1 
+            n_corner_2 = n_bottom + 1 
+            neighborG.extend([grids[n_top],grids[n_right],grids[n_bottom],grids[n_corner_1],grids[n_corner_2]])
+        elif cond_1 == N_AREAS_WIDTH-1:
+            n_left = g - 1
+            n_top = g - N_AREAS_WIDTH
+            n_bottom = g + N_AREAS_WIDTH
+            n_corner_1 = n_top - 1 
+            n_corner_2 = n_bottom - 1
+            neighborG.extend([grids[n_top],grids[n_left],grids[n_bottom],grids[n_corner_1],grids[n_corner_2]])
     
-    
-    return 0
+    if grid in N3:
+        g = grid.num
+        if grid is N3[0]:
+            n_right = g+1
+            n_bottom = g + N_AREAS_WIDTH
+            n_corner_1 = n_bottom + 1 
+            neighborG.extend([grids[n_right],grids[n_bottom],grids[n_corner_1]])
+        elif grid is N3[1]:
+            n_left = g - 1 
+            n_bottom = g + N_AREAS_WIDTH
+            n_corner_1 = n_bottom - 1
+            neighborG.extend([grids[n_left],grids[n_bottom],grids[n_corner_1]])
+        elif grid is N3[2]:
+            n_top = g - N_AREAS_WIDTH
+            n_right = g+1
+            n_corner_1 = n_top + 1
+            neighborG.extend([grids[n_top],grids[n_right],grids[n_corner_1]])
+        elif grid is N3[3]:
+            n_top = g - N_AREAS_WIDTH
+            n_left = g-1
+            n_corner_1 = n_top - 1
+            neighborG.extend([grids[n_top],grids[n_left],grids[n_corner_1]])
+        
+    return neighborG
+            
 def check(boidpos):
     """
     Makes sure that the positions are within the bounds 
@@ -130,9 +204,6 @@ def centerPos(boid):
 
 #Caculates distances between two boids 
 def calculateDistance(boid1,boid2):
-
-    #print (pos1)
-    #print (pos2,'\n')
     center1 = centerPos(boid1)
     center2 = centerPos(boid2)
 
@@ -197,7 +268,7 @@ class space:
         balls = []
         for i in range(NBALLS):
             Initpos, size = init_Boid()
-            balls.append(Boid(Initpos,'blue',size,highVector=False))
+            balls.append(Boid(Initpos,i,'blue',size,highVector=False))
             
             #Loop below is to make sure that the particles are not spawning in inside each other
             #to begin with.
@@ -209,18 +280,16 @@ class space:
                         CANVAS.delete(balls[-1].boid)
                         Initpos, size = init_Boid()
                         balls.pop()
-                        balls.append(Boid(Initpos,'blue',size,highVector=False))
+                        balls.append(Boid(Initpos,i,'blue',size,highVector=False))
                         d = calculateDistance(balls[-1],balls[j])
                         j=-1
                     else: 
                         j= j +1
-                #print (balls)
-
             
             #If there is a boid we want to observe 
             if ballInterest is not None:  
                 if i ==ballInterest:
-                    spec = Boid(Initpos,'green',size,highVector=True,highFOV=True)
+                    spec = Boid(Initpos,i,'green',size,highVector=True,highFOV=True)
                     spec.special = True
                     balls.append(spec)     
         self.boids = balls
@@ -238,7 +307,7 @@ class grid:
 
 class Boid:
     #space = space()
-    def __init__(self,pos,color,size,highVector=False, highFOV = False):
+    def __init__(self,pos,num,color,size,highVector=False, highFOV = False):
         """
         Initializes a boid object with the following parameters: 
             pos: the initial position of the boid is given by a box with (x1,y1) and (x2,y2), where the 
@@ -255,10 +324,8 @@ class Boid:
         dr_r = rd.randint(-MAX_speed,MAX_speed+1)
         while np.abs(dr_r) < MIN_speed:
             dr_r = rd.randint(-MAX_speed,MAX_speed+1)
-
-        #print (dr_r)
-
         self.pos = pos
+        self.num = num
         self.boid = CANVAS.create_oval(pos[0],pos[1],pos[2],pos[3],fill=color)
         self.vx = dr_r*np.cos(np.deg2rad(dr_theta))
         self.vy =  dr_r*np.sin(np.deg2rad(dr_theta))
@@ -285,31 +352,16 @@ class Boid:
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
         TO DO: make it steer away from bounds and not just hit it.
         """
-        #dr_theta = rd.randint(0,361)
-        #dr_r = rd.randint(-MAX_speed,MAX_speed+1)
-        
-        #self.vx = self.vx + dr_r*np.cos(np.deg2rad(dr_theta))
-        #self.vy = self.vy + dr_r*np.sin(np.deg2rad(dr_theta))
-        
-        #self.vx = dr_r*np.cos(np.deg2rad(dr_theta))
-        #self.vy = dr_r*np.sin(np.deg2rad(dr_theta))
-
         CANVAS.move(self.boid,self.vx,self.vy)
         self.pos = CANVAS.coords(self.boid)
-
         
         self.bounceWall()
-        
 
         self.pos = CANVAS.coords(self.boid)
 
-        #self.pos = np.abs(self.pos)
         self.gridN = updateGrid(self,s,self.size)
             
         self.mates = self.findMates()
-        if self.special:
-            for m in self.mates:
-                print (m.pos)
         
         self.rule1(self.mates)
 
@@ -319,7 +371,6 @@ class Boid:
             CANVAS.itemconfig(self.boid,fill = self.gridN.color)
         self.alertImpactWall()
 
-        
         angles, lineAng = self.vision()
 
         if self.highVec:
@@ -393,28 +444,24 @@ class Boid:
             Input(s): boid (object)
             Output(s): mates (array of objects)  
         """
-        grids = s.grids
         mates = []
-        potentialColl = self.gridN.boids
-        #if self.gridN.num == 7:
-        #    for b in self.gridN.boids:
-        #       print (b.pos)
+        potentialColl = []
+        nGrid = returnNeighborGrid(self.gridN)
+        for g in nGrid:
+            potentialColl.extend(g.boids)
         dummy, angle = self.vision()
-        pos = self.pos
-        center = [(pos[0]+pos[2])/2,(pos[1]+pos[3])/2]
+        p = self.pos
+        center = [(p[0]+p[2])/2,(p[1]+p[3])/2]
         for p in potentialColl:
-
             #Makes sure that we are not comparing the boid with itself
             if p == self:
-                pass
-            else:
-                posM = p.pos
-                centerM = [(posM[0]+posM[2])/2,(posM[1]+posM[3])/2]
-                if (posM[0]-center[0])**2+(posM[1]-center[1])**2 <=LINE_SITE**2 or (posM[2]-center[0])**2+(posM[3]-center[1])**2 <=LINE_SITE**2:
-                    if self.special:
-                        print (np.rad2deg(np.arctan2(centerM[1],centerM[0])))
-                    if np.arctan2(centerM[1],centerM[0]) > angle and np.arctan2(centerM[1],center[0]) < 2*np.pi - angle: 
-                        mates.append(p)
+                continue
+            posM = p.pos
+            centerM = [(posM[0]+posM[2])/2,(posM[1]+posM[3])/2]
+            if (posM[0]-center[0])**2+(posM[1]-center[1])**2 <=LINE_SITE**2 or (posM[2]-center[0])**2+(posM[3]-center[1])**2 <=LINE_SITE**2:
+                CANVAS.itemconfig(p,fill='green')
+                if np.arctan2(centerM[1]-center[1],centerM[0]-center[0]) > angle and np.arctan2(centerM[1]-center[1],centerM[0]-center[0]) < 2*np.pi - angle: 
+                    mates.append(p)
         return mates
 
     def rule1(self,boids):
@@ -441,9 +488,6 @@ class Boid:
 ballInterest = 9
 s=space(ballInterest=ballInterest)
 balls = []
-returnNeighborGrid(s.grids)
-
-
 #for i in range(n):
 #    Initpos, size = init_Boid()
 #    balls.append(Boid(Initpos,'blue',size,highVector=False))
@@ -455,9 +499,9 @@ returnNeighborGrid(s.grids)
 
 CANVAS.pack()  
 
-#while (True):
-#    [b.move() for b in s.boids]
-#    TK.update()
-#    time.sleep(0.09)
+while (True):
+    [b.move() for b in s.boids]
+    TK.update()
+    time.sleep(0.09)
 
 TK.mainloop()
