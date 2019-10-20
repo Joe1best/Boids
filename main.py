@@ -9,22 +9,28 @@ import numpy.linalg as la
 
 
 
-MAX_speed = 20
-MIN_speed = 10
+MAX_speed = 6
+MIN_speed = 2
 WIDTH = 1000
 HEIGHT = 800
 N_AREAS_WIDTH = 6
 N_AREAS_HEIGHT = 4
 TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
 
-
+#Boid
 MAX_SIZE = 10
 MIN_SIZE = 5
 VECTOR_SIZE = 30
 LINE_SITE = 80
 FIELD_OF_VIEW = 270
 
-NBALLS = 8
+
+#Axioms
+_COLLISION_DISTANCE_ = LINE_SITE
+_COLLISION_FACTOR_ = 5
+
+
+NBALLS = 100
 TOL = 10   #Make this as a function of total velocity 
 
 COLORS = [ "pink", "cyan", "green", "yellow", "purple", "orange", "white", "black" ]
@@ -197,6 +203,16 @@ def check(boidpos):
         boidpos[2] = WIDTH 
     return boidpos
 
+def limitSpeed(vector, max_magnitude, min_magnitude = 0.0):
+    mag = magnitude(vector)
+    if mag > max_magnitude:
+        normalizing_factor = max_magnitude / mag
+    elif mag < min_magnitude:
+        normalizing_factor = min_magnitude / mag
+    else: return vector
+
+    return [value * normalizing_factor for value in vector]
+
 def centerPos(boid):
     pos = boid.pos
     center = [(pos[0]+pos[2])/2,(pos[3]+pos[1])/2]
@@ -211,6 +227,12 @@ def calculateDistance(boid1,boid2):
 
     return d
 
+def magnitude(v1):
+    """
+    Takes the magnitude of vector v1
+    """
+    return np.sqrt(v1[0]**2+v1[1]**2)
+
 def vectAng(v1,v2):
     """ 
     Returns the angle in radians between vectors 'v1' and 'v2'    
@@ -218,58 +240,6 @@ def vectAng(v1,v2):
     cosang = np.dot(v1, v2)
     sinang = la.norm(np.cross(v1, v2))
     return np.arctan2(sinang, cosang)
-
-def rotate(vx,vy,angle):
-    """
-    Rotates the frame by an angle "angle"
-    """
-    vx_r = vx*np.cos(angle) - vy*np.sin(angle)
-    vy_r = vx*np.sin(angle) + vy*np.cos(angle)
-    return vx_r,vy_r
-
-def ellasticCollision(boid1,boid2):
-    """
-    Code in fictitious ellastic collision for each particle. Fictitious here means that 
-    the particles actually dont hit, but bounce off a point that is equal to the shortest 
-    distance between them. This limit is predetermined and depends on the max velocity of 
-    both particles.
-
-    These systems are solved by rotating the frame of reference of the two balls such that it
-    is possible to solve the system in 1-D (since the equations there are known) and then 
-    translating back into 2-D again by rotating the frame of reference back to its initial state. 
-    """ 
-    xVelDiff = boid1.vx - boid2.vx
-    yVelDiff = boid1.vy - boid2.vy
-
-    center1 = centerPos(boid1)
-    center2 = centerPos(boid2)
-
-    xDist = center2[0] - center1[0]
-    yDist = center2[1] - center1[1]
-
-    m1 = 1
-    m2 = 1
-
-
-    #Prevents accidental overlap of boids 
-    #if xVelDiff*xDist + yVelDiff*yDist >=0:
-
-        #Angle between two "colliding" particles
-    angle = -np.arctan2(center2[1]-center1[1],center2[0]-center1[0])
-    
-    u1x,u1y = rotate(boid1.vx,boid1.vy,angle)
-    u2x,u2y = rotate(boid2.vx,boid2.vy,angle)
-
-    v1x = u1x*(m1-m2)/(m1+m2) + u2x*2*m2/(m1+m2)
-    v1y = u1y
-
-    v2x = u2x*(m1-m2)/(m1+m2) + u1x*2*m2/(m1+m2)
-    v2y = u2y 
-
-    v1fx,v1fy = rotate(v1x,v1y,-angle)
-    v2fx,v2fy = rotate(v2x,v2y,-angle)
-
-    return v1fx,v1fy,v2fx,v2fy
 
 class space: 
     def __init__(self,ballInterest = None):
@@ -364,19 +334,29 @@ class Boid:
             self.vy = self.flip(self.vy)
         if self.pos[2]>= WIDTH or self.pos[0]<=0:
             self.vx = self.flip(self.vx)
-        
+
     def move(self):
         """
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
         TO DO: make it steer away from bounds and not just hit it.
         """
-        CANVAS.move(self.boid,self.vx,self.vy)
-        self.pos = CANVAS.coords(self.boid)
-        self.bounceWall()
-        self.pos = CANVAS.coords(self.boid)
+
         self.gridN = updateGrid(self,s,self.size)
         self.mates = self.findMates()
-        self.rule1(self.mates)
+        dvx, dvy = self.rule1(self.mates)
+
+        self.vx += dvx
+        self.vy += dvy 
+
+        vs = limitSpeed([self.vx,self.vy],MAX_speed,MIN_speed)
+        self.vx = vs[0]
+        self.vy = vs[1]
+
+
+        self.bounceWall()
+
+        CANVAS.move(self.boid,self.vx,self.vy)
+        self.pos = CANVAS.coords(self.boid)
 
         if SHOWGRIDCOLOR:
             CANVAS.itemconfig(self.boid,fill = self.gridN.color)
@@ -476,30 +456,35 @@ class Boid:
             if (posM[0]-center[0])**2+(posM[1]-center[1])**2 <=LINE_SITE**2 or (posM[2]-center[0])**2+(posM[3]-center[1])**2 <=LINE_SITE**2:
                 if vectAng(dirVec,vecFromSelf) < FIELD_OF_VIEW/2 : 
                     mates.append(p)
-        if self.special:
-            print (mates)
         return mates
 
-    def rule1(self,boids):
+    def rule1(self,mates):
         """
         Implements the first rule of the boid project; each boid must avoid hitting
-        each other.
-            Input(s): boids object that are within a specific area of space.  
+        each other. This is done by repelling them with a force that is proportionel to the
+        distance between boids and inversely proportionel to the distance squared. This force 
+        will then be multiplied by some constant determined "experimentaly" to find the perfect
+        and most natural boid avoidance. 
+            Input(s): boids object that are within a specific area of space (mates)  
         """
-        for b in boids: 
+        c = [0,0]
+        for b in mates:
             d = calculateDistance(self,b)
-            if d <= (self.size + b.size + TOL): 
-                v1x,v1y,v2x,v2y = ellasticCollision(self,b)
-                self.vx = v1x
-                self.vy = v1y 
-                b.vx = v2x
-                b.vy = v2y    
+            if d <=_COLLISION_DISTANCE_ and b != self and d !=0:
+                centerM = centerPos(b)
+                center = centerPos(self)
+                diff = [centerM[0]-center[0],centerM[1]-center[1]]
+                magnitudeDiff = magnitude(diff) - self.size - b.size
+                c[0] = c[0] - diff[0]/magnitudeDiff**2*_COLLISION_FACTOR_
+                c[1] = c[1] - diff[1]/magnitudeDiff**2*_COLLISION_FACTOR_
+        return c 
 
 
     #def scanEnvironement():
     #def turn():
 
     #def alertBoidCollision(self):
+
 s=space(ballInterest=ballInterest)
 
 def run():
