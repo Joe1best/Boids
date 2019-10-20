@@ -1,69 +1,27 @@
 import numpy as np 
-from mpl_toolkits import mplot3d
 from tkinter import *
 import time 
-import matplotlib.pyplot as plt 
 import random as rd
-import matplotlib.pylab as pl
 import numpy.linalg as la
-from multiprocessing import Pool
+import init
+import boidUtil
+import random as rd
 
-MAX_speed = 10
-MIN_speed = 2
-WIDTH = 1000
-HEIGHT = 800
-N_AREAS_WIDTH = 6
-N_AREAS_HEIGHT = 6
-TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
-
-#Boid
-MAX_SIZE = 20
-MIN_SIZE = 15
-VECTOR_SIZE = 30
-LINE_SITE = 80
-FIELD_OF_VIEW = 270
-ANGLE_TOP = 40
-ANGLE_BOTTOM = 70
-
-
-#Axioms
-_COLLISION_DISTANCE_ = LINE_SITE
-_COLLISION_FACTOR_ = 7.5
-
-
-NBALLS = 50
-TOL = 10   #Make this as a function of total velocity 
-
-COLORS = [ "pink", "cyan", "green", "yellow", "purple", "orange", "white", "black" ]
-SHOWGRIDCOLOR = False
-SHOWGRIDS = True
-
-TK = Tk()
-CANVAS = Canvas(TK,width=WIDTH,height=HEIGHT)
 ballInterest = 2
 
-def returnCanvas():
-    return CANVAS
-
-def init_Boid():
-    size = rd.randint(MIN_SIZE,MAX_SIZE)
-    px = rd.randint(size,WIDTH-size)   #Makes sure that the boid does not spawn outside the boundary
-    py = rd.randint(size,HEIGHT-size)
-    return [px-size,py-size,px+size,py+size],size
-
 def seperateAreas():
-    x_loc = np.linspace(0,WIDTH,N_AREAS_WIDTH+1)
-    y_loc = np.linspace(0,HEIGHT,N_AREAS_HEIGHT+1)
+    x_loc = np.linspace(0,init.WIDTH,init.N_AREAS_WIDTH+1)
+    y_loc = np.linspace(0,init.HEIGHT,init.N_AREAS_WIDTH+1)
 
     #Draws the gridlines
-    if SHOWGRIDS:
-        for y in range(N_AREAS_HEIGHT):
-            CANVAS.create_line([0,y_loc[y]],[WIDTH,y_loc[y]])
-        for x in range(N_AREAS_WIDTH):
-            CANVAS.create_line([x_loc[x],0],[x_loc[x],HEIGHT])
+    if init.SHOWGRIDS:
+        for y in range(init.N_AREAS_HEIGHT):
+            init.CANVAS.create_line([0,y_loc[y]],[init.WIDTH,y_loc[y]])
+        for x in range(init.N_AREAS_WIDTH):
+            init.CANVAS.create_line([x_loc[x],0],[x_loc[x],init.HEIGHT])
     
     grid = [[x,y] for x in x_loc for y in y_loc]
-    grid = np.reshape(grid,(N_AREAS_WIDTH+1,N_AREAS_HEIGHT+1,2))
+    grid = np.reshape(grid,(init.N_AREAS_WIDTH+1,init.N_AREAS_HEIGHT+1,2))
     return grid
 
 def gridGenerator(num):
@@ -72,30 +30,17 @@ def gridGenerator(num):
                                      1 3 
     """
     grid = seperateAreas()
-    c = num%(N_AREAS_WIDTH)
-    r = int(num/(N_AREAS_WIDTH))
+    c = num%(init.N_AREAS_WIDTH)
+    r = int(num/(init.N_AREAS_WIDTH))
     loc = np.concatenate((grid[c][r:r+2],grid[c+1][r:r+2]))
     return loc
-
-def findBoids(area,boids):
-    """
-    Function that returns boid objects that are within the specified area. 
-    Format of area is the grid coordinates
-    """
-    neighboordBoid = []
-    for b in boids: 
-        pos = b.pos
-        center = [(pos[0]+pos[2])/2,(pos[3]+pos[1])/2]
-        if center[1]>=area[0][1] and center[1]<=area[1][1] and center[0]>=area[1][0] and center[0]<=area[3][0]:
-            neighboordBoid.append(b)
-    return neighboordBoid    
-
+ 
 def updateGrid(boid,space,size):
     """
     Position of the boid 
     """
     boidPos = boid.pos
-    boidPos = check(boidPos)
+    boidPos = boidUtil.check(boidPos)
     center = [(boidPos[0]+boidPos[2])/2,(boidPos[1]+boidPos[3])/2]
     grids = space.grids
 
@@ -107,12 +52,12 @@ def returnNeighborGrid(grid):
     """
     returns neighboring grids 
     """
-    def neighbors8(grids): return [x for x in grids if x.num%N_AREAS_WIDTH!=0 and (x.num+1)%N_AREAS_WIDTH!=0 and int(x.num/N_AREAS_WIDTH)!=0 and int(x.num/N_AREAS_WIDTH)!=N_AREAS_HEIGHT-1]
+    def neighbors8(grids): return [x for x in grids if x.num%init.N_AREAS_WIDTH!=0 and (x.num+1)%init.N_AREAS_WIDTH!=0 and int(x.num/init.N_AREAS_WIDTH)!=0 and int(x.num/init.N_AREAS_WIDTH)!=init.N_AREAS_WIDTH-1]
     
-    def neighbors3(grids): return [grids[0],grids[N_AREAS_WIDTH-1],grids[N_AREAS_WIDTH*(N_AREAS_HEIGHT-1)],grids[N_AREAS_HEIGHT*N_AREAS_WIDTH-1]]
+    def neighbors3(grids): return [grids[0],grids[init.N_AREAS_WIDTH-1],grids[init.N_AREAS_WIDTH*(init.N_AREAS_WIDTH-1)],grids[init.N_AREAS_WIDTH*init.N_AREAS_WIDTH-1]]
     
     grids = s.grids
-    grids = np.reshape(grids,(N_AREAS_WIDTH*N_AREAS_HEIGHT,))
+    grids = np.reshape(grids,(init.N_AREAS_WIDTH*init.N_AREAS_WIDTH,))
     N8 = neighbors8(grids)
     N3 = neighbors3(grids)
     N5 = [x for x in grids if x not in N8 and x not in N3]
@@ -121,8 +66,8 @@ def returnNeighborGrid(grid):
         g = grid.num
         n_right = g + 1
         n_left = g - 1
-        n_top = g - N_AREAS_WIDTH
-        n_bottom = g + N_AREAS_WIDTH
+        n_top = g - init.N_AREAS_WIDTH
+        n_bottom = g + init.N_AREAS_WIDTH
         n_corner_1 = n_top + 1
         n_corner_2 = n_top - 1 
         n_corner_3 = n_bottom + 1
@@ -130,34 +75,34 @@ def returnNeighborGrid(grid):
         neighborG.extend([grids[n_right],grids[n_left],grids[n_top],grids[n_bottom],grids[n_corner_1],
                         grids[n_corner_2], grids[n_corner_3],grids[n_corner_4]])
     if grid in N5:
-        cond = int(grid.num/N_AREAS_WIDTH)
-        cond_1 = grid.num%N_AREAS_WIDTH
+        cond = int(grid.num/init.N_AREAS_WIDTH)
+        cond_1 = grid.num%init.N_AREAS_WIDTH
         g = grid.num
         if cond==0:
             n_left = g - 1
             n_right = g + 1
-            n_bottom = g + N_AREAS_WIDTH
+            n_bottom = g + init.N_AREAS_WIDTH
             n_corner_1 = n_bottom - 1 
             n_corner_2 = n_bottom + 1 
             neighborG.extend([grids[n_left],grids[n_right],grids[n_bottom],grids[n_corner_1],grids[n_corner_2]])
-        elif cond == N_AREAS_HEIGHT-1:
+        elif cond == init.N_AREAS_WIDTH-1:
             n_left = g - 1
             n_right = g + 1
-            n_top = g - N_AREAS_WIDTH
+            n_top = g - init.N_AREAS_WIDTH
             n_corner_1 = n_top - 1 
             n_corner_2 = n_top + 1
             neighborG.extend([grids[n_left],grids[n_right],grids[n_top],grids[n_corner_1],grids[n_corner_2]])
         elif cond_1 == 0:
             n_right = g + 1
-            n_top = g - N_AREAS_WIDTH
-            n_bottom = g + N_AREAS_WIDTH
+            n_top = g - init.N_AREAS_WIDTH
+            n_bottom = g + init.N_AREAS_WIDTH
             n_corner_1 = n_top + 1 
             n_corner_2 = n_bottom + 1 
             neighborG.extend([grids[n_top],grids[n_right],grids[n_bottom],grids[n_corner_1],grids[n_corner_2]])
-        elif cond_1 == N_AREAS_WIDTH-1:
+        elif cond_1 == init.N_AREAS_WIDTH-1:
             n_left = g - 1
-            n_top = g - N_AREAS_WIDTH
-            n_bottom = g + N_AREAS_WIDTH
+            n_top = g - init.N_AREAS_WIDTH
+            n_bottom = g + init.N_AREAS_WIDTH
             n_corner_1 = n_top - 1 
             n_corner_2 = n_bottom - 1
             neighborG.extend([grids[n_top],grids[n_left],grids[n_bottom],grids[n_corner_1],grids[n_corner_2]])
@@ -166,46 +111,27 @@ def returnNeighborGrid(grid):
         g = grid.num
         if grid is N3[0]:
             n_right = g+1
-            n_bottom = g + N_AREAS_WIDTH
+            n_bottom = g + init.N_AREAS_WIDTH
             n_corner_1 = n_bottom + 1 
             neighborG.extend([grids[n_right],grids[n_bottom],grids[n_corner_1]])
         elif grid is N3[1]:
             n_left = g - 1 
-            n_bottom = g + N_AREAS_WIDTH
+            n_bottom = g + init.N_AREAS_WIDTH
             n_corner_1 = n_bottom - 1
             neighborG.extend([grids[n_left],grids[n_bottom],grids[n_corner_1]])
         elif grid is N3[2]:
-            n_top = g - N_AREAS_WIDTH
+            n_top = g - init.N_AREAS_WIDTH
             n_right = g+1
             n_corner_1 = n_top + 1
             neighborG.extend([grids[n_top],grids[n_right],grids[n_corner_1]])
         elif grid is N3[3]:
-            n_top = g - N_AREAS_WIDTH
+            n_top = g - init.N_AREAS_WIDTH
             n_left = g-1
             n_corner_1 = n_top - 1
             neighborG.extend([grids[n_top],grids[n_left],grids[n_corner_1]])
         
     return neighborG
             
-def check(boidpos):
-    """
-    Makes sure that the positions are within the bounds 
-    """
-    boidpos = np.asarray(boidpos)
-    boidpos[boidpos<0] = 0 
-    boidpos = list(boidpos)
-
-    if boidpos[3]>HEIGHT:
-        boidpos[3] = HEIGHT
-    if boidpos[1]>HEIGHT:
-        boidpos[1] = HEIGHT
-    
-    if boidpos[0] >WIDTH:
-        boidpos[0] = WIDTH 
-    if boidpos[2] > WIDTH:
-        boidpos[2] = WIDTH 
-    return boidpos
-
 def limitSpeed(vector, max_magnitude, min_magnitude = 0.0):
     mag = magnitude(vector)
     if mag > max_magnitude:
@@ -216,15 +142,10 @@ def limitSpeed(vector, max_magnitude, min_magnitude = 0.0):
 
     return [value * normalizing_factor for value in vector]
 
-def centerPos(boid):
-    pos = boid.pos
-    center = [(pos[0]+pos[2])/2,(pos[3]+pos[1])/2]
-    return center
-
 #Caculates distances between two boids 
 def calculateDistance(boid1,boid2):
-    center1 = centerPos(boid1)
-    center2 = centerPos(boid2)
+    center1 = boidUtil.centerPos(boid1)
+    center2 = boidUtil.centerPos(boid2)
 
     d = np.sqrt((center1[0]-center2[0])**2+(center1[1]-center2[1])**2)
 
@@ -247,10 +168,10 @@ def vectAng(v1,v2):
 
 class drawBoid:
     def draw(self,b,angle,size):
-        center = centerPos(b)  
+        center = boidUtil.centerPos(b)  
         p1 = np.asarray([0,size/2])
-        p2 = np.asarray([-size*np.cos(np.deg2rad(ANGLE_BOTTOM)),-size/2])
-        p3 = np.asarray([size*np.cos(np.deg2rad(ANGLE_BOTTOM)),-size/2])
+        p2 = np.asarray([-size*np.cos(np.deg2rad(init.ANGLE_BOTTOM)),-size/2])
+        p3 = np.asarray([size*np.cos(np.deg2rad(init.ANGLE_BOTTOM)),-size/2])
         
         p1,p2,p3 = self.rotate(p1,p2,p3,angle)
         
@@ -261,7 +182,7 @@ class drawBoid:
         points = np.reshape([p1,p2,p3],(6,))
         points = list(points)
 
-        r = CANVAS.create_polygon(points,outline='black',fill='red',width=3)
+        r = init.CANVAS.create_polygon(points,outline='black',fill='red',width=3)
 
         return r  
     
@@ -277,8 +198,8 @@ class drawBoid:
 class space: 
     def __init__(self,ballInterest = None):
         balls = []
-        for i in range(NBALLS):
-            Initpos, size = init_Boid()
+        for i in range(init.NBALLS):
+            Initpos, size = boidUtil.init_Boid()
             balls.append(Boid(Initpos,i,'blue',size))
             
             #Loop below is to make sure that the particles are not spawning in inside each other
@@ -288,8 +209,8 @@ class space:
                 while j < len(balls): 
                     d = calculateDistance(balls[-1],balls[j])
                     if d - (balls[-1].size+balls[j].size)<0 and balls[-1] != balls[j]:
-                        CANVAS.delete(balls[-1].boid)
-                        Initpos, size = init_Boid()
+                        init.CANVAS.delete(balls[-1].boid)
+                        Initpos, size = boidUtil.init_Boid()
                         balls.pop()
                         balls.append(Boid(Initpos,i,'blue',size))
                         d = calculateDistance(balls[-1],balls[j])
@@ -304,9 +225,9 @@ class space:
                     spec.special = True
                     balls.append(spec)     
         self.boids = balls
-        self.width = WIDTH
-        self.height = HEIGHT
-        self.grids = [grid(i,self.boids) for i in range(TOTALGRID)]
+        self.width = init.WIDTH
+        self.height = init.HEIGHT
+        self.grids = [grid(i,self.boids) for i in range(init.TOTALGRID)]
 
     def updateSpace(self):
         [g.update(self.boids) for g in self.grids]
@@ -314,17 +235,17 @@ class space:
 class grid: 
     def __init__(self,num,boids):
         self.coord = gridGenerator(num)
-        self.boids = findBoids(self.coord,boids) 
+        self.boids = boidUtil.findBoids(self.coord,boids) 
         self.num = num
-        nums = list(map(lambda x : rd.randint(0,7), range(NBALLS)))
-        self.color = COLORS[nums[rd.randint(0,7)]]
+        nums = list(map(lambda x : rd.randint(0,7), range(init.NBALLS)))
+        self.color = init.COLORS[nums[rd.randint(0,7)]]
     
     def update(self,boids):
         """
         Function that updates the boids that are within the grids everytime
         it is called
         """
-        self.boids = findBoids(self.coord,boids)
+        self.boids = boidUtil.findBoids(self.coord,boids)
 
 class Boid:
     #space = space()
@@ -342,9 +263,9 @@ class Boid:
                        TO DO: Implement to show velocity vector
         """
         dr_theta = rd.randint(0,361)
-        dr_r = rd.randint(-MAX_speed,MAX_speed+1)
-        while np.abs(dr_r) < MIN_speed:
-            dr_r = rd.randint(-MAX_speed,MAX_speed+1)
+        dr_r = rd.randint(-init.MAX_SPEED,init.MAX_SPEED+1)
+        while np.abs(dr_r) < init.MIN_SPEED:
+            dr_r = rd.randint(-init.MAX_SPEED,init.MAX_SPEED+1)
         self.pos = pos
         self.num = num
         self.vx = dr_r*np.cos(np.deg2rad(dr_theta))
@@ -360,13 +281,11 @@ class Boid:
         self.special = False
     
     def bounceWall(self):
-        if self.pos[3]>= HEIGHT or self.pos[1]<=0: 
+        if self.pos[3]>= init.HEIGHT or self.pos[1]<=0: 
             self.vy = self.flip(self.vy)
-        if self.pos[2]>= WIDTH or self.pos[0]<=0:
-            
+        if self.pos[2]>= init.WIDTH or self.pos[0]<=0:
             self.vx = self.flip(self.vx)
-            if self.special:
-                print (self.vx)
+         
     def move(self):
         """
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
@@ -380,7 +299,7 @@ class Boid:
         self.vx += dvx
         self.vy += dvy 
 
-        vs = limitSpeed([self.vx,self.vy],MAX_speed,MIN_speed)
+        vs = limitSpeed([self.vx,self.vy],init.MAX_SPEED,init.MIN_SPEED)
         self.vx = vs[0]
         self.vy = vs[1]
 
@@ -388,56 +307,44 @@ class Boid:
 
         angles, lineAng = self.vision()
         
-        CANVAS.delete(self.boid)
-        self.boid = drawBoid().draw(self,lineAng,self.size)
-        if self.special:
-            print (self.pos)
-            print (self.vx,self.vy)
-       
-        CANVAS.move(self.boid,self.vx,self.vy)
-        CANVAS.delete(self.boid)
-        self.boid = drawBoid().draw(self,lineAng,self.size)
-        
-        coord = CANVAS.coords(self.boid)
-        if self.special:
-            print (coord)
-        x_offset = self.size*np.cos(np.deg2rad(ANGLE_BOTTOM))
-        
+        init.CANVAS.delete(self.boid)
+        self.boid = drawBoid().draw(self,lineAng-np.pi/2,self.size)
 
-        self.pos = [coord[0]-x_offset,coord[1],coord[4],coord[5]]
-        if self.special:
-            print (self.pos,'\n')
+        init.CANVAS.move(self.boid,self.vx,self.vy)
+        init.CANVAS.delete(self.boid)
+        self.boid = drawBoid().draw(self,lineAng-np.pi/2,self.size)
         
+        self.pos = [self.pos[0]+self.vx,self.pos[1]+self.vy,self.pos[2]+self.vx,self.pos[3]+self.vy]
+      
         angles, lineAng = self.vision()
 
-        if SHOWGRIDCOLOR:
-            CANVAS.itemconfig(self.boid,fill = self.gridN.color)
+        if init.SHOWGRIDCOLOR:
+            init.CANVAS.itemconfig(self.boid,fill = self.gridN.color)
         self.alertImpactWall()
 
-
         if self.special:
-            CANVAS.delete(self.line)
-            self.line = CANVAS.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
-                        self.pos[0] + self.size - VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - VECTOR_SIZE*np.sin(lineAng),arrow='first')
+            init.CANVAS.delete(self.line)
+            self.line = init.CANVAS.create_line(self.pos[2] - self.size + init.VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + init.VECTOR_SIZE*np.sin(lineAng),
+                        self.pos[0] + self.size - init.VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - init.VECTOR_SIZE*np.sin(lineAng),arrow='first')
             self.showDirectionVector(lineAng)
         
         if self.special:
-            CANVAS.delete(self.fieldOfView)
-            self.fieldOfView = CANVAS.create_arc(self.pos[0] - self.size + LINE_SITE,self.pos[1] - self.size + LINE_SITE,
-                        self.pos[2] + self.size - LINE_SITE,self.pos[3] + self.size - LINE_SITE,start = -np.rad2deg(angles[0])  , extent=FIELD_OF_VIEW)
+            init.CANVAS.delete(self.fieldOfView)
+            self.fieldOfView = init.CANVAS.create_arc(self.pos[0] - self.size + init.LINE_SITE*2,self.pos[1] - self.size + init.LINE_SITE*2,
+                        self.pos[2] + self.size - init.LINE_SITE*2,self.pos[3] + self.size - init.LINE_SITE*2,start = -np.rad2deg(angles[0]) ,extent=init.FIELD_OF_VIEW)
             self.showFieldOfView(lineAng,angles)
 
     def showDirectionVector(self,lineAng):
-        CANVAS.delete(self.line)
-        CANVAS.move(self.line,self.vx,self.vy)
-        self.line = CANVAS.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
-                        self.pos[0] + self.size - VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - VECTOR_SIZE*np.sin(lineAng),arrow='first')
+        init.CANVAS.delete(self.line)
+        init.CANVAS.move(self.line,self.vx,self.vy)
+        self.line = init.CANVAS.create_line(self.pos[2] - self.size + init.VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + init.VECTOR_SIZE*np.sin(lineAng),
+                        self.pos[0] + self.size - init.VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - init.VECTOR_SIZE*np.sin(lineAng),arrow='first')
 
     def showFieldOfView(self,lineAng,angles):
-        CANVAS.delete(self.fieldOfView)
-        CANVAS.move(self.fieldOfView,self.vx,self.vy)
-        self.fieldOfView = CANVAS.create_arc(self.pos[0] - self.size + LINE_SITE, self.pos[1] - self.size + LINE_SITE,
-                        self.pos[2] + self.size - LINE_SITE,self.pos[3] + self.size - LINE_SITE, start = -np.rad2deg(angles[0]),extent=FIELD_OF_VIEW)
+        init.CANVAS.delete(self.fieldOfView)
+        init.CANVAS.move(self.fieldOfView,self.vx,self.vy)
+        self.fieldOfView = init.CANVAS.create_arc(self.pos[0] - self.size + init.LINE_SITE*2, self.pos[1] - self.size + init.LINE_SITE*2,
+                        self.pos[2] + self.size - init.LINE_SITE*2,self.pos[3] + self.size - init.LINE_SITE*2, start = -np.rad2deg(angles[0]),extent=init.FIELD_OF_VIEW)
 
     def flip(self,v):
         """
@@ -461,23 +368,23 @@ class Boid:
             angle = 0
         else: 
             angle = np.arctan2(self.vy,self.vx)
-        st = angle - np.deg2rad(FIELD_OF_VIEW/2)
+        st = angle - np.deg2rad(init.FIELD_OF_VIEW/2)
         if st < 0: 
             st = 2*np.pi + st
         vision = [st-np.pi/2,0] 
         return vision,angle
 
     def alertImpactWall(self):
-        if self.pos[3]>= HEIGHT-LINE_SITE or self.pos[1]<=0+LINE_SITE: 
-            self.alert = TRUE
-            CANVAS.itemconfig(self.boid,fill='red')
-        elif self.pos[2]>= WIDTH-LINE_SITE or self.pos[0]<=0+LINE_SITE:
-            self.alert = TRUE
-            CANVAS.itemconfig(self.boid,fill='red')
+        if self.pos[3]>= init.HEIGHT-init.LINE_SITE or self.pos[1]<=0+init.LINE_SITE: 
+            self.alert = True
+            init.CANVAS.itemconfig(self.boid,fill='red')
+        elif self.pos[2]>= init.WIDTH-init.LINE_SITE or self.pos[0]<=0+init.LINE_SITE:
+            self.alert = True
+            init.CANVAS.itemconfig(self.boid,fill='red')
         else:
             self.alert = False
-            if SHOWGRIDCOLOR is False: 
-                CANVAS.itemconfig(self.boid,fill='blue')
+            if init.SHOWGRIDCOLOR is False: 
+                init.CANVAS.itemconfig(self.boid,fill='blue')
 
     def findMates(self):
         """
@@ -503,11 +410,10 @@ class Boid:
             centerM = [(posM[0]+posM[2])/2,(posM[1]+posM[3])/2]
             angleFromSelf = np.arctan2(center[1]-centerM[1],center[0]-centerM[0])
             vecFromSelf = [np.cos(angleFromSelf),np.sin(angleFromSelf)]
-            if (posM[0]-center[0])**2+(posM[1]-center[1])**2 <=LINE_SITE**2 or (posM[2]-center[0])**2+(posM[3]-center[1])**2 <=LINE_SITE**2:
-                if vectAng(dirVec,vecFromSelf) < FIELD_OF_VIEW/2 : 
+            if (posM[0]-center[0])**2+(posM[1]-center[1])**2 <=init.LINE_SITE**2 or (posM[2]-center[0])**2+(posM[3]-center[1])**2 <=init.LINE_SITE**2:
+                if vectAng(dirVec,vecFromSelf) < init.FIELD_OF_VIEW/2 : 
                     mates.append(p)
         return mates
-
 
     def rule1(self,mates):
         """
@@ -521,13 +427,13 @@ class Boid:
         c = [0,0]
         for b in mates:
             d = calculateDistance(self,b)
-            if d <=_COLLISION_DISTANCE_ and b != self and d !=0:
-                centerM = centerPos(b)
-                center = centerPos(self)
+            if d <=init._COLLISION_DISTANCE_ and b != self and d !=0:
+                centerM = boidUtil.centerPos(b)
+                center = boidUtil.centerPos(self)
                 diff = [centerM[0]-center[0],centerM[1]-center[1]]
-                magnitudeDiff = magnitude(diff) - self.size - b.size
-                c[0] = c[0] - diff[0]/magnitudeDiff**2*_COLLISION_FACTOR_
-                c[1] = c[1] - diff[1]/magnitudeDiff**2*_COLLISION_FACTOR_
+                magnitudeDiff = magnitude(diff) - self.size/2 - b.size/2
+                c[0] = c[0] - diff[0]/magnitudeDiff**2*init._COLLISION_FACTOR_
+                c[1] = c[1] - diff[1]/magnitudeDiff**2*init._COLLISION_FACTOR_
         return c 
 
     def rule2(self,mates):
@@ -537,37 +443,19 @@ class Boid:
         """
         return 0
 
-    #def scanEnvironement():
-    #def turn():
-
-    #def alertBoidCollision(self):
-
 s=space(ballInterest=ballInterest)
 
 def run():
-    CANVAS.pack()
-    p = Pool(8)
+    init.CANVAS.pack()
     while (True):
         s.updateSpace()
-        #[print (g.boids) for g in s.grids if g.num==1]
         boids = s.boids
-        nullVar = p.map(lambda boi: boi.move(), boids)
-        #[b.move() for b in s.boids]
-        TK.update()
+        #nullVar = p.map(lambda boi: boi.move(), boids)
+        [b.move() for b in s.boids]
+        init.TK.update()
         time.sleep(0.05)
-    TK.mainloop()
+    init.TK.mainloop()
 
 if __name__ == '__main__':
-    #run()
-    CANVAS.pack()
-    #p = Pool(8)
-    while (True):
-        s.updateSpace()
-        #[print (g.boids) for g in s.grids if g.num==1]
-        #boids = s.boids
-        #f = lambda boi: boi.move()
-        #nullVar = p.map(f, boids)
-        [b.move() for b in s.boids]
-        TK.update()
-        time.sleep(0.05)
-    TK.mainloop()
+    run()
+    
