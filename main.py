@@ -6,15 +6,18 @@ import matplotlib.pyplot as plt
 import random as rd
 import matplotlib.pylab as pl
 import numpy.linalg as la
+from multiprocessing import Pool
+from boidDraw import *
 
 
 
-MAX_speed = 6
+
+MAX_speed = 10
 MIN_speed = 2
 WIDTH = 1000
 HEIGHT = 800
 N_AREAS_WIDTH = 6
-N_AREAS_HEIGHT = 4
+N_AREAS_HEIGHT = 6
 TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
 
 #Boid
@@ -27,10 +30,10 @@ FIELD_OF_VIEW = 270
 
 #Axioms
 _COLLISION_DISTANCE_ = LINE_SITE
-_COLLISION_FACTOR_ = 5
+_COLLISION_FACTOR_ = 7.5
 
 
-NBALLS = 100
+NBALLS = 50
 TOL = 10   #Make this as a function of total velocity 
 
 COLORS = [ "pink", "cyan", "green", "yellow", "purple", "orange", "white", "black" ]
@@ -314,7 +317,10 @@ class Boid:
             dr_r = rd.randint(-MAX_speed,MAX_speed+1)
         self.pos = pos
         self.num = num
-        self.boid = CANVAS.create_oval(pos[0],pos[1],pos[2],pos[3],fill=color)
+        #self.boid = CANVAS.create_oval(pos[0],pos[1],pos[2],pos[3],fill=color)
+        nullVar = drawBoid(self,dr_theta)
+        print (nullVar)
+        self.boid = nullVar.drawing
         self.vx = dr_r*np.cos(np.deg2rad(dr_theta))
         self.vy =  dr_r*np.sin(np.deg2rad(dr_theta))
         self.color = color
@@ -334,6 +340,8 @@ class Boid:
             self.vy = self.flip(self.vy)
         if self.pos[2]>= WIDTH or self.pos[0]<=0:
             self.vx = self.flip(self.vx)
+
+
 
     def move(self):
         """
@@ -479,6 +487,12 @@ class Boid:
                 c[1] = c[1] - diff[1]/magnitudeDiff**2*_COLLISION_FACTOR_
         return c 
 
+    def rule2(self,mates):
+        """
+        Implements rule 2 of the boid algo. This rule is in charged of handling the 
+        alignment of nearby boids. 
+        """
+        return 0
 
     #def scanEnvironement():
     #def turn():
@@ -489,13 +503,28 @@ s=space(ballInterest=ballInterest)
 
 def run():
     CANVAS.pack()
-    
+    p = Pool(8)
     while (True):
         s.updateSpace()
         #[print (g.boids) for g in s.grids if g.num==1]
-        [b.move() for b in s.boids]
+        boids = s.boids
+        nullVar = p.map(lambda boi: boi.move(), boids)
+        #[b.move() for b in s.boids]
         TK.update()
-        time.sleep(0.09)
+        time.sleep(0.05)
     TK.mainloop()
 
-run()
+if __name__ == '__main__':
+    #run()
+    CANVAS.pack()
+    p = Pool(8)
+    while (True):
+        s.updateSpace()
+        #[print (g.boids) for g in s.grids if g.num==1]
+        #boids = s.boids
+        #f = lambda boi: boi.move()
+        #nullVar = p.map(f, boids)
+        [b.move() for b in s.boids]
+        TK.update()
+        time.sleep(0.05)
+    TK.mainloop()
