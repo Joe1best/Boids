@@ -1,11 +1,12 @@
 import numpy as np 
-from mpl_toolkits import mplot3d
 from tkinter import *
-from main import CANVAS
+from main import returnCanvas
+from main import centerPos
 
 ANGLE_TOP = 40
 ANGLE_BOTTOM = 70
 SIZE = 25
+CANVAS = returnCanvas()
 
 class drawBoid:
     def __init__(self,b,angle):

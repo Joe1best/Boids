@@ -7,10 +7,6 @@ import random as rd
 import matplotlib.pylab as pl
 import numpy.linalg as la
 from multiprocessing import Pool
-from boidDraw import *
-
-
-
 
 MAX_speed = 10
 MIN_speed = 2
@@ -21,11 +17,13 @@ N_AREAS_HEIGHT = 6
 TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
 
 #Boid
-MAX_SIZE = 10
-MIN_SIZE = 5
+MAX_SIZE = 20
+MIN_SIZE = 15
 VECTOR_SIZE = 30
 LINE_SITE = 80
 FIELD_OF_VIEW = 270
+ANGLE_TOP = 40
+ANGLE_BOTTOM = 70
 
 
 #Axioms
@@ -44,6 +42,8 @@ TK = Tk()
 CANVAS = Canvas(TK,width=WIDTH,height=HEIGHT)
 ballInterest = 2
 
+def returnCanvas():
+    return CANVAS
 
 def init_Boid():
     size = rd.randint(MIN_SIZE,MAX_SIZE)
@@ -244,12 +244,42 @@ def vectAng(v1,v2):
     sinang = la.norm(np.cross(v1, v2))
     return np.arctan2(sinang, cosang)
 
+
+class drawBoid:
+    def draw(self,b,angle,size):
+        center = centerPos(b)  
+        p1 = np.asarray([0,size/2])
+        p2 = np.asarray([-size*np.cos(np.deg2rad(ANGLE_BOTTOM)),-size/2])
+        p3 = np.asarray([size*np.cos(np.deg2rad(ANGLE_BOTTOM)),-size/2])
+        
+        p1,p2,p3 = self.rotate(p1,p2,p3,angle)
+        
+        p1 = p1 + center
+        p2 = p2 + center 
+        p3 = p3 + center
+
+        points = np.reshape([p1,p2,p3],(6,))
+        points = list(points)
+
+        r = CANVAS.create_polygon(points,outline='black',fill='red',width=3)
+
+        return r  
+    
+    def rotate(self,p1,p2,p3,theta):
+        c, s = np.cos(theta), np.sin(theta)
+        R = np.matrix([[c,-s],[s,c]])
+        p1_ = np.dot(R,p1.T)
+        p2_ = np.dot(R,p2.T)
+        p3_ = np.dot(R,p3.T)
+
+        return p1_,p2_,p3_
+
 class space: 
     def __init__(self,ballInterest = None):
         balls = []
         for i in range(NBALLS):
             Initpos, size = init_Boid()
-            balls.append(Boid(Initpos,i,'blue',size,highVector=False))
+            balls.append(Boid(Initpos,i,'blue',size))
             
             #Loop below is to make sure that the particles are not spawning in inside each other
             #to begin with.
@@ -261,7 +291,7 @@ class space:
                         CANVAS.delete(balls[-1].boid)
                         Initpos, size = init_Boid()
                         balls.pop()
-                        balls.append(Boid(Initpos,i,'blue',size,highVector=False))
+                        balls.append(Boid(Initpos,i,'blue',size))
                         d = calculateDistance(balls[-1],balls[j])
                         j=-1
                     else: 
@@ -270,7 +300,7 @@ class space:
             #If there is a boid we want to observe 
             if ballInterest is not None:  
                 if i ==ballInterest:
-                    spec = Boid(Initpos,i,'green',size,highVector=True,highFOV=True)
+                    spec = Boid(Initpos,i,'green',size)
                     spec.special = True
                     balls.append(spec)     
         self.boids = balls
@@ -298,7 +328,7 @@ class grid:
 
 class Boid:
     #space = space()
-    def __init__(self,pos,num,color,size,highVector=False, highFOV = False):
+    def __init__(self,pos,num,color,size):
         """
         Initializes a boid object with the following parameters: 
             pos: the initial position of the boid is given by a box with (x1,y1) and (x2,y2), where the 
@@ -317,32 +347,26 @@ class Boid:
             dr_r = rd.randint(-MAX_speed,MAX_speed+1)
         self.pos = pos
         self.num = num
-        #self.boid = CANVAS.create_oval(pos[0],pos[1],pos[2],pos[3],fill=color)
-        nullVar = drawBoid(self,dr_theta)
-        print (nullVar)
-        self.boid = nullVar.drawing
         self.vx = dr_r*np.cos(np.deg2rad(dr_theta))
         self.vy =  dr_r*np.sin(np.deg2rad(dr_theta))
         self.color = color
         self.size = size
-        self.highVec = highVector
-        self.highFOV = highFOV
+        self.boid = None
         self.line = None
         self.fieldOfView = None
         self.alert = False 
         self.gridN = None
-        self.mates = None   #friendly neighborhood boids that are within the field
-                            #of view of this boid. 
+        self.mates = None   
         self.special = False
     
     def bounceWall(self):
         if self.pos[3]>= HEIGHT or self.pos[1]<=0: 
             self.vy = self.flip(self.vy)
         if self.pos[2]>= WIDTH or self.pos[0]<=0:
+            
             self.vx = self.flip(self.vx)
-
-
-
+            if self.special:
+                print (self.vx)
     def move(self):
         """
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
@@ -360,25 +384,44 @@ class Boid:
         self.vx = vs[0]
         self.vy = vs[1]
 
-
         self.bounceWall()
 
+        angles, lineAng = self.vision()
+        
+        CANVAS.delete(self.boid)
+        self.boid = drawBoid().draw(self,lineAng,self.size)
+        if self.special:
+            print (self.pos)
+            print (self.vx,self.vy)
+       
         CANVAS.move(self.boid,self.vx,self.vy)
-        self.pos = CANVAS.coords(self.boid)
+        CANVAS.delete(self.boid)
+        self.boid = drawBoid().draw(self,lineAng,self.size)
+        
+        coord = CANVAS.coords(self.boid)
+        if self.special:
+            print (coord)
+        x_offset = self.size*np.cos(np.deg2rad(ANGLE_BOTTOM))
+        
+
+        self.pos = [coord[0]-x_offset,coord[1],coord[4],coord[5]]
+        if self.special:
+            print (self.pos,'\n')
+        
+        angles, lineAng = self.vision()
 
         if SHOWGRIDCOLOR:
             CANVAS.itemconfig(self.boid,fill = self.gridN.color)
         self.alertImpactWall()
 
-        angles, lineAng = self.vision()
 
-        if self.highVec:
+        if self.special:
             CANVAS.delete(self.line)
             self.line = CANVAS.create_line(self.pos[2] - self.size + VECTOR_SIZE*np.cos(lineAng),self.pos[3] - self.size + VECTOR_SIZE*np.sin(lineAng),
                         self.pos[0] + self.size - VECTOR_SIZE*np.cos(lineAng),self.pos[1] + self.size - VECTOR_SIZE*np.sin(lineAng),arrow='first')
             self.showDirectionVector(lineAng)
         
-        if self.highFOV:
+        if self.special:
             CANVAS.delete(self.fieldOfView)
             self.fieldOfView = CANVAS.create_arc(self.pos[0] - self.size + LINE_SITE,self.pos[1] - self.size + LINE_SITE,
                         self.pos[2] + self.size - LINE_SITE,self.pos[3] + self.size - LINE_SITE,start = -np.rad2deg(angles[0])  , extent=FIELD_OF_VIEW)
@@ -392,7 +435,6 @@ class Boid:
 
     def showFieldOfView(self,lineAng,angles):
         CANVAS.delete(self.fieldOfView)
-
         CANVAS.move(self.fieldOfView,self.vx,self.vy)
         self.fieldOfView = CANVAS.create_arc(self.pos[0] - self.size + LINE_SITE, self.pos[1] - self.size + LINE_SITE,
                         self.pos[2] + self.size - LINE_SITE,self.pos[3] + self.size - LINE_SITE, start = -np.rad2deg(angles[0]),extent=FIELD_OF_VIEW)
@@ -466,6 +508,7 @@ class Boid:
                     mates.append(p)
         return mates
 
+
     def rule1(self,mates):
         """
         Implements the first rule of the boid project; each boid must avoid hitting
@@ -517,7 +560,7 @@ def run():
 if __name__ == '__main__':
     #run()
     CANVAS.pack()
-    p = Pool(8)
+    #p = Pool(8)
     while (True):
         s.updateSpace()
         #[print (g.boids) for g in s.grids if g.num==1]
