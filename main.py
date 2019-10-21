@@ -165,7 +165,6 @@ def vectAng(v1,v2):
     sinang = la.norm(np.cross(v1, v2))
     return np.arctan2(sinang, cosang)
 
-
 class drawBoid:
     def draw(self,b,angle,size):
         center = boidUtil.centerPos(b)  
@@ -291,13 +290,13 @@ class Boid:
         Moves the boid randomely on the canvas. If the boid hits the limit of the canvas, it will bounce. 
         TO DO: make it steer away from bounds and not just hit it.
         """
-
         self.gridN = updateGrid(self,s,self.size)
         self.mates = self.findMates()
-        dvx, dvy = self.rule1(self.mates)
+        dvx_1, dvy_1 = self.rule1(self.mates)
+        dvx_2,dvy_2 = self.rule2(self.mates)
 
-        self.vx += dvx
-        self.vy += dvy 
+        self.vx += dvx_1+dvx_2
+        self.vy += dvy_1+dvy_2 
 
         vs = limitSpeed([self.vx,self.vy],init.MAX_SPEED,init.MIN_SPEED)
         self.vx = vs[0]
@@ -439,9 +438,19 @@ class Boid:
     def rule2(self,mates):
         """
         Implements rule 2 of the boid algo. This rule is in charged of handling the 
-        alignment of nearby boids. 
+        alignment of nearby boids. This is done by finding the average vector of boids
+        in the vicinity and then appyling that change to the boid in interest 
         """
-        return 0
+        sum_x, sum_y = 0,0
+        for m in mates:
+            sum_x += m.vx
+            sum_y += m.vy
+        
+        if len(mates)>0:
+            average_x, average_y = sum_x/len(mates), sum_y/len(mates)
+            return [(average_x-self.vx)*init._ALIGNMENT_FACTOR_, (average_y-self.vy)*init._ALIGNMENT_FACTOR_]
+        else: 
+            return [0,0]
 
 s=space(ballInterest=ballInterest)
 
@@ -453,7 +462,7 @@ def run():
         #nullVar = p.map(lambda boi: boi.move(), boids)
         [b.move() for b in s.boids]
         init.TK.update()
-        time.sleep(0.05)
+        time.sleep(0.001)
     init.TK.mainloop()
 
 if __name__ == '__main__':

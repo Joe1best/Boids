@@ -22,9 +22,10 @@ ANGLE_BOTTOM = 70
 #Axioms
 _COLLISION_DISTANCE_ = LINE_SITE*2
 _COLLISION_FACTOR_ = 7.5
+_ALIGNMENT_FACTOR_ = 0.25
 
 
-NBALLS = 75
+NBALLS = 50
 TOL = 10   #Make this as a function of total velocity 
 
 COLORS = [ "pink", "cyan", "green", "yellow", "purple", "orange", "white", "black" ]
