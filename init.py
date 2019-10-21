@@ -1,10 +1,10 @@
 from tkinter import *
 
 
-MAX_SPEED = 7
-MIN_SPEED = 2
-WIDTH = 1000
-HEIGHT = 800
+MAX_SPEED = 13
+MIN_SPEED = 5
+WIDTH = 2000
+HEIGHT = 1000
 N_AREAS_WIDTH = 6
 N_AREAS_HEIGHT = 6
 TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
@@ -13,7 +13,7 @@ TOTALGRID = N_AREAS_HEIGHT*N_AREAS_WIDTH
 MAX_SIZE = 25
 MIN_SIZE = 15
 VECTOR_SIZE = 30
-LINE_SITE = 50
+LINE_SITE = 80
 FIELD_OF_VIEW = 270
 ANGLE_TOP = 40
 ANGLE_BOTTOM = 70
@@ -22,15 +22,15 @@ ANGLE_BOTTOM = 70
 #Axioms
 _COLLISION_DISTANCE_ = LINE_SITE*2
 _COLLISION_FACTOR_ = 7.5
-_ALIGNMENT_FACTOR_ = 0.25
+_ALIGNMENT_FACTOR_ = 0.055
 
 
-NBALLS = 50
+NBALLS = 100
 TOL = 10   #Make this as a function of total velocity 
 
-COLORS = [ "pink", "cyan", "green", "yellow", "purple", "orange", "white", "black" ]
+COLORS = [ "#739900", "#006622", "#800000", "#cc9900", "#000066", "#990099", "#26004d", "#262673",'#cc00cc']
 SHOWGRIDCOLOR = False
 SHOWGRIDS = True
 
 TK = Tk()
-CANVAS = Canvas(TK,width=WIDTH,height=HEIGHT)
+CANVAS = Canvas(TK,width=WIDTH,height=HEIGHT,background='#262626')

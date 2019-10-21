@@ -166,7 +166,7 @@ def vectAng(v1,v2):
     return np.arctan2(sinang, cosang)
 
 class drawBoid:
-    def draw(self,b,angle,size):
+    def draw(self,b,angle,size,color):
         center = boidUtil.centerPos(b)  
         p1 = np.asarray([0,size/2])
         p2 = np.asarray([-size*np.cos(np.deg2rad(init.ANGLE_BOTTOM)),-size/2])
@@ -181,7 +181,7 @@ class drawBoid:
         points = np.reshape([p1,p2,p3],(6,))
         points = list(points)
 
-        r = init.CANVAS.create_polygon(points,outline='black',fill='red',width=3)
+        r = init.CANVAS.create_polygon(points,outline='black',fill=color,width=2)
 
         return r  
     
@@ -197,9 +197,10 @@ class drawBoid:
 class space: 
     def __init__(self,ballInterest = None):
         balls = []
+        nums = list(map(lambda x : rd.randint(0,len(init.COLORS)-1), range(init.NBALLS)))
         for i in range(init.NBALLS):
             Initpos, size = boidUtil.init_Boid()
-            balls.append(Boid(Initpos,i,'blue',size))
+            balls.append(Boid(Initpos,i,init.COLORS[nums[i]],size))
             
             #Loop below is to make sure that the particles are not spawning in inside each other
             #to begin with.
@@ -211,7 +212,7 @@ class space:
                         init.CANVAS.delete(balls[-1].boid)
                         Initpos, size = boidUtil.init_Boid()
                         balls.pop()
-                        balls.append(Boid(Initpos,i,'blue',size))
+                        balls.append(Boid(Initpos,i,init.COLORS[nums[i]],size))
                         d = calculateDistance(balls[-1],balls[j])
                         j=-1
                     else: 
@@ -307,11 +308,11 @@ class Boid:
         angles, lineAng = self.vision()
         
         init.CANVAS.delete(self.boid)
-        self.boid = drawBoid().draw(self,lineAng-np.pi/2,self.size)
+        self.boid = drawBoid().draw(self,lineAng-np.pi/2,self.size,self.color)
 
         init.CANVAS.move(self.boid,self.vx,self.vy)
         init.CANVAS.delete(self.boid)
-        self.boid = drawBoid().draw(self,lineAng-np.pi/2,self.size)
+        self.boid = drawBoid().draw(self,lineAng-np.pi/2,self.size,self.color)
         
         self.pos = [self.pos[0]+self.vx,self.pos[1]+self.vy,self.pos[2]+self.vx,self.pos[3]+self.vy]
       
@@ -376,14 +377,14 @@ class Boid:
     def alertImpactWall(self):
         if self.pos[3]>= init.HEIGHT-init.LINE_SITE or self.pos[1]<=0+init.LINE_SITE: 
             self.alert = True
-            init.CANVAS.itemconfig(self.boid,fill='red')
+            #init.CANVAS.itemconfig(self.boid,fill='red')
         elif self.pos[2]>= init.WIDTH-init.LINE_SITE or self.pos[0]<=0+init.LINE_SITE:
             self.alert = True
-            init.CANVAS.itemconfig(self.boid,fill='red')
+            #init.CANVAS.itemconfig(self.boid,fill='red')
         else:
             self.alert = False
-            if init.SHOWGRIDCOLOR is False: 
-                init.CANVAS.itemconfig(self.boid,fill='blue')
+            #if init.SHOWGRIDCOLOR is False: 
+                #init.CANVAS.itemconfig(self.boid,fill='blue')
 
     def findMates(self):
         """
@@ -452,6 +453,11 @@ class Boid:
         else: 
             return [0,0]
 
+    def rule3(self,mates):
+        
+        
+        
+        return 0
 s=space(ballInterest=ballInterest)
 
 def run():
