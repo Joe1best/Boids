@@ -295,9 +295,10 @@ class Boid:
         self.mates = self.findMates()
         dvx_1, dvy_1 = self.rule1(self.mates)
         dvx_2,dvy_2 = self.rule2(self.mates)
+        dvx_3,dvy_3 = self.rule3(self.mates)
 
-        self.vx += dvx_1+dvx_2
-        self.vy += dvy_1+dvy_2 
+        self.vx += dvx_1+dvx_2+dvx_3
+        self.vy += dvy_1+dvy_2+dvy_3
 
         vs = limitSpeed([self.vx,self.vy],init.MAX_SPEED,init.MIN_SPEED)
         self.vx = vs[0]
@@ -454,18 +455,29 @@ class Boid:
             return [0,0]
 
     def rule3(self,mates):
-        
-        
-        
-        return 0
+        """
+        Implements rule 3 of the boid algorithm. This is done by calculating the average position of the 
+        group and making every boid attract to that position.
+        """
+        sum_x, sum_y = 0,0
+        pos_center = boidUtil.centerPos(self)
+        for m in mates:
+            pos = boidUtil.centerPos(m)
+            sum_x += pos[0]
+            sum_y += pos[1]
+         
+        if len(mates)>0:
+            average_x, average_y = sum_x/len(mates), sum_y/len(mates)
+            return [(average_x-pos_center[0])*init._COHESION_FACTOR_,(average_y-pos_center[1])*init._COHESION_FACTOR_]
+        else: 
+            return [0,0]
+
 s=space(ballInterest=ballInterest)
 
 def run():
     init.CANVAS.pack()
     while (True):
         s.updateSpace()
-        boids = s.boids
-        #nullVar = p.map(lambda boi: boi.move(), boids)
         [b.move() for b in s.boids]
         init.TK.update()
         time.sleep(0.001)
