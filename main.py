@@ -165,6 +165,15 @@ def vectAng(v1,v2):
     sinang = la.norm(np.cross(v1, v2))
     return np.arctan2(sinang, cosang)
 
+def dist2Line(p,l):
+    """
+    Function that calculates the distance between a point p and a line l. 
+    Input: p (float array of size 2) specifies the position (x,y)
+           l (float array of size 3) specifies the line ax+by+c=0 with (a,b,c) 
+    Output: dist (float) shortest distance between point p and the line l 
+    """
+    return np.abs(a*p[0]+b*p[1]+c)/np.sqrt(a**2+b**2)
+
 class drawBoid:
     def draw(self,b,angle,size,color):
         center = boidUtil.centerPos(b)  
@@ -471,6 +480,27 @@ class Boid:
             return [(average_x-pos_center[0])*init._COHESION_FACTOR_,(average_y-pos_center[1])*init._COHESION_FACTOR_]
         else: 
             return [0,0]
+        
+    def boundaryEvasion(self):
+        c = [0,0] 
+        def findNearestBoundary(self):
+            pos = self.pos
+            bound1 = [0,1,0] #line at y=0
+            bound2 = [0,1,-init.HEIGHT] #line at y=Height
+            bound3 = [1,0,0] #line at x=0
+            bound4 = [1,0,-init.WIDTH] #line at x = Width
+            bounds = [bound1,bound2,bound3,bound4]
+            dist = [dist2Line(pos,b) for b in bounds]
+            return 0 
+
+        #if d <=init._COLLISION_DISTANCE_ and b != self and d !=0:
+        #        centerM = boidUtil.centerPos(b)
+        #        center = boidUtil.centerPos(self)
+        #        diff = [centerM[0]-center[0],centerM[1]-center[1]]
+        #        magnitudeDiff = magnitude(diff) - self.size/2 - b.size/2
+        #        c[0] = c[0] - diff[0]/magnitudeDiff**2*init._COLLISION_FACTOR_
+        #       c[1] = c[1] - diff[1]/magnitudeDiff**2*init._COLLISION_FACTOR_
+        return c 
 
 s=space(ballInterest=ballInterest)
 
