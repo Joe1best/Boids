@@ -172,7 +172,7 @@ def dist2Line(p,l):
            l (float array of size 3) specifies the line ax+by+c=0 with (a,b,c) 
     Output: dist (float) shortest distance between point p and the line l 
     """
-    return np.abs(a*p[0]+b*p[1]+c)/np.sqrt(a**2+b**2)
+    return np.abs(l[0]*p[0]+l[1]*p[1]+l[2])/np.sqrt(l[0]**2+l[1]**2)
 
 class drawBoid:
     def draw(self,b,angle,size,color):
@@ -305,9 +305,13 @@ class Boid:
         dvx_1, dvy_1 = self.rule1(self.mates)
         dvx_2,dvy_2 = self.rule2(self.mates)
         dvx_3,dvy_3 = self.rule3(self.mates)
+        dvx_4, dvy_4 = self.boundaryEvasion()
 
-        self.vx += dvx_1+dvx_2+dvx_3
-        self.vy += dvy_1+dvy_2+dvy_3
+        if self.special:
+            print (dvx_4,dvy_4)
+
+        self.vx += dvx_1+dvx_2+dvx_3+dvx_4
+        self.vy += dvy_1+dvy_2+dvy_3+dvy_4
 
         vs = limitSpeed([self.vx,self.vy],init.MAX_SPEED,init.MIN_SPEED)
         self.vx = vs[0]
@@ -483,23 +487,31 @@ class Boid:
         
     def boundaryEvasion(self):
         c = [0,0] 
-        def findNearestBoundary(self):
+        
+        def findNearestBoundary():
             pos = self.pos
             bound1 = [0,1,0] #line at y=0
             bound2 = [0,1,-init.HEIGHT] #line at y=Height
-            bound3 = [1,0,0] #line at x=0
-            bound4 = [1,0,-init.WIDTH] #line at x = Width
-            bounds = [bound1,bound2,bound3,bound4]
+            bounds = [bound1,bound2]
             dist = [dist2Line(pos,b) for b in bounds]
-            return 0 
-
-        #if d <=init._COLLISION_DISTANCE_ and b != self and d !=0:
-        #        centerM = boidUtil.centerPos(b)
-        #        center = boidUtil.centerPos(self)
-        #        diff = [centerM[0]-center[0],centerM[1]-center[1]]
-        #        magnitudeDiff = magnitude(diff) - self.size/2 - b.size/2
-        #        c[0] = c[0] - diff[0]/magnitudeDiff**2*init._COLLISION_FACTOR_
-        #       c[1] = c[1] - diff[1]/magnitudeDiff**2*init._COLLISION_FACTOR_
+            MiN = min(dist)
+            for s in range(len(dist)): 
+                if dist[s]==MiN: 
+                    b = s
+            return dist, b
+        
+        d, b = findNearestBoundary()
+        if d[0]<init._BUFFER_ZONE_ or d[1] < init._BUFFER_ZONE_:
+            if b==0:
+                y = 0
+            else: 
+                y = init.HEIGHT 
+            centerB = [self.pos[0],y]
+            center = boidUtil.centerPos(self)
+            diff = [centerB[0]-center[0],centerB[1]-center[1]]
+            magnitudeDiff = magnitude(diff) - self.size/2
+            c[0] = c[0] - diff[0]/magnitudeDiff**2*init._BOUNDARY_FACTOR
+            c[1] = c[1] - diff[1]/magnitudeDiff**2*init._BOUNDARY_FACTOR
         return c 
 
 s=space(ballInterest=ballInterest)
