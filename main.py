@@ -307,8 +307,8 @@ class Boid:
         dvx_3,dvy_3 = self.rule3(self.mates)
         dvx_4, dvy_4 = self.boundaryEvasion()
 
-        if self.special:
-            print (dvx_4,dvy_4)
+        #if self.special:
+        #    print (dvx_4,dvy_4)
 
         self.vx += dvx_1+dvx_2+dvx_3+dvx_4
         self.vy += dvy_1+dvy_2+dvy_3+dvy_4
@@ -487,7 +487,6 @@ class Boid:
         
     def boundaryEvasion(self):
         c = [0,0] 
-        
         def findNearestBoundary():
             pos = self.pos
             bound1 = [0,1,0] #line at y=0
@@ -513,6 +512,22 @@ class Boid:
             c[0] = c[0] - diff[0]/magnitudeDiff**2*init._BOUNDARY_FACTOR
             c[1] = c[1] - diff[1]/magnitudeDiff**2*init._BOUNDARY_FACTOR
         return c 
+
+    def teleport(self,lineAng):
+        pos = self.pos
+
+        if self.pos[0] >= init.WIDTH: 
+            init.CANVAS.delete(self.boid)
+            self.pos = [self.pos[0]%init.WIDTH,pos[1]]
+            self.boid = drawBoid().draw(self,lineAng-np.pi/2,self.size,self.color)
+        elif self.pos[0] <= 0: 
+            init.CANVAS.delete(self.boid)
+            self.pos = [0,pos[1]]
+            self.boid = drawBoid().draw(self,lineAng-np.pi/2,self.size,self.color)
+
+
+        return 0 
+
 
 s=space(ballInterest=ballInterest)
 
